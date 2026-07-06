@@ -1,9 +1,5 @@
 import * as SQLite from 'expo-sqlite';
-
-export type PersistedEnvelope<T> = Readonly<{
-  version: number;
-  state: T;
-}>;
+import { PERSISTED_APP_STATE_VERSION, type PersistedEnvelope } from './persistedState';
 
 type StateRow = Readonly<{
   payload: string;
@@ -38,7 +34,7 @@ export function loadAppState<T>(): PersistedEnvelope<T> | null {
 }
 
 export function saveAppState<T>(state: T) {
-  const envelope: PersistedEnvelope<T> = { version: 1, state };
+  const envelope: PersistedEnvelope<T> = { version: PERSISTED_APP_STATE_VERSION, state };
   database().runSync(
     'INSERT OR REPLACE INTO app_state (id, payload, updated_at) VALUES (?, ?, ?)',
     STATE_ID,

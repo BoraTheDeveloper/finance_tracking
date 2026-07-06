@@ -2,11 +2,18 @@
   "expo": {
     "name": "Luy Khnom",
     "slug": "luy-khnom",
+    "scheme": "luykhnom",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/luy-khnom-icon-flat.png",
     "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/luy-khnom-splash-icon-flat.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F7F4EE"
+    },
     "ios": {
+      "bundleIdentifier": "com.luykhnom.app",
       "supportsTablet": true
     },
     "android": {
@@ -22,6 +29,11 @@
     },
     "plugins": [
       "expo-sqlite"
-    ]
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "23fe86ec-5c1a-464b-bfdd-47e704388dcd"
+      }
+    }
   }
 }

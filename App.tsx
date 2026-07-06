@@ -1,4 +1,5 @@
 import { StatusBar } from 'expo-status-bar';
+import * as DocumentPicker from 'expo-document-picker';
 import * as Notifications from 'expo-notifications';
 import * as Sharing from 'expo-sharing';
 import * as FileSystem from 'expo-file-system/legacy';
@@ -37,6 +38,7 @@ import {
   KantumruyPro_700Bold,
 } from '@expo-google-fonts/kantumruy-pro';
 import { saveAppState, loadAppState } from './src/db/appStorage';
+import { backupFileName, parsePersistedBackup, stringifyPersistedBackup } from './src/db/appBackup';
 import { BALANCED, SAVER, summarizeBudget } from './src/domain/budget';
 import { parseExpenseText } from './src/domain/expenseParser';
 import { bestAndWorst, buildHeatmap } from './src/domain/insights';
@@ -359,6 +361,13 @@ const LIGHT = {
   green: '#1f8a5b',
   amber: '#c8820a',
   red: '#d84c3f',
+  heat: {
+    savedHigh: '#1f8a5b',
+    saved: '#57b98a',
+    near: '#a9dcc4',
+    over: '#e0a63a',
+    overHigh: '#e0603a',
+  },
 };
 
 const DARK = {
@@ -375,6 +384,13 @@ const DARK = {
   green: '#3fbc86',
   amber: '#e0a63a',
   red: '#f0685c',
+  heat: {
+    savedHigh: '#3fbc86',
+    saved: '#2f9f72',
+    near: '#2f6f56',
+    over: '#e0a63a',
+    overHigh: '#f0685c',
+  },
 };
 
 // Plus Jakarta Sans — the primary (Latin/English) type family.
@@ -936,7 +952,45 @@ export default function App() {
     showToast('CSV exported');
   }
 
-  function renderTopBar(title: string, subtitle?: string, back?: Screen, right?: ReactNode) {
+  async function exportJsonBackup() {
+    try {
+      const uri = `${FileSystem.documentDirectory}${backupFileName()}`;
+      await FileSystem.writeAsStringAsync(uri, stringifyPersistedBackup(model), { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) {
+        await Sharing.shareAsync(uri, { mimeType: 'application/json', dialogTitle: 'Export Luy Khnom backup' });
+      }
+      showToast('JSON backup exported');
+    } catch (error) {
+      console.warn('Could not export Luy Khnom backup', error);
+      showToast('Could not export backup');
+    }
+  }
+
+  async function importJsonBackup() {
+    try {
+      const result = await DocumentPicker.getDocumentAsync({
+        type: 'application/json',
+        copyToCacheDirectory: true,
+        multiple: false,
+      });
+      if (result.canceled) return;
+      const uri = result.assets[0]?.uri;
+      if (!uri) throw new Error('No backup file selected');
+      const raw = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.UTF8 });
+      const backup = parsePersistedBackup<PersistedAppModel>(raw);
+      const restored = normalizeLoadedModel(backup.state);
+      saveAppState(restored);
+      setModel(restored);
+      setDrafts(INITIAL_DRAFTS);
+      setSheet(null);
+      showToast('Backup restored');
+    } catch (error) {
+      console.warn('Could not import Luy Khnom backup', error);
+      showToast(error instanceof Error ? error.message : 'Could not import backup');
+    }
+  }
+
+  function renderTopBar(title: string, _subtitle?: string, back?: Screen, right?: ReactNode) {
     return (
       <View style={styles.topRow}>
         {back ? (
@@ -946,7 +1000,6 @@ export default function App() {
         ) : null}
         <View style={{ flex: 1 }}>
           <AppText style={[back ? styles.title : styles.pageTitle, { color: theme.text }]}>{title}</AppText>
-          {subtitle ? <AppText style={[styles.subtitle, { color: theme.muted }]}>{subtitle}</AppText> : null}
         </View>
         {right ?? null}
       </View>
@@ -986,9 +1039,13 @@ export default function App() {
             <View>
               <AppText style={[styles.heroTitle, { color: theme.text }]}>Your fixed monthly costs</AppText>
               <AppText style={[styles.subtitle, { color: theme.muted }]}>Rent and loan come out first — these are your Needs.</AppText>
-              <MoneyField label="Rent" initialAmount={model.rent} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: value }))} right={<View style={[styles.duePillBig, { backgroundColor: theme.surface, ...CARD_SHADOW }]}><AppText style={[styles.segmentText, { color: theme.text }]}>Due {ordinal(model.rentDue)}</AppText></View>} />
+              <MoneyField label="Rent" initialAmount={model.rent} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: value }))} />
+              <AppText style={[styles.label, { color: theme.muted }]}>Rent due date</AppText>
+              <View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((day) => <TouchableOpacity key={day} style={[styles.segmentButton, model.rentDue === day && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, rentDue: day }))}><AppText style={[styles.segmentText, { color: model.rentDue === day ? theme.text : theme.muted }]}>{ordinal(day)}</AppText></TouchableOpacity>)}</View>
               <MoneyField label="Utilities (monthly avg)" initialAmount={model.utilities} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, utilities: value }))} />
-              <MoneyField label="Loan repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} right={<View style={[styles.duePillBig, { backgroundColor: theme.surface, ...CARD_SHADOW }]}><AppText style={[styles.segmentText, { color: theme.text }]}>Due {ordinal(model.loanDue)}</AppText></View>} />
+              <AppText style={[styles.label, { color: theme.muted }]}>Loan</AppText>
+              <View style={[styles.segment, { backgroundColor: theme.surface2 }]}><TouchableOpacity style={[styles.segmentButton, model.loan <= 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: 0, paidBills: { ...current.paidBills, loan: true } }))}><AppText style={[styles.segmentText, { color: model.loan <= 0 ? theme.text : theme.muted }]}>No loan</AppText></TouchableOpacity><TouchableOpacity style={[styles.segmentButton, model.loan > 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: current.loan > 0 ? current.loan : 50, paidBills: { ...current.paidBills, loan: false } }))}><AppText style={[styles.segmentText, { color: model.loan > 0 ? theme.text : theme.muted }]}>I have a loan</AppText></TouchableOpacity></View>
+              {model.loan > 0 ? <><MoneyField label="Loan repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Loan due date</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((day) => <TouchableOpacity key={day} style={[styles.segmentButton, model.loanDue === day && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loanDue: day }))}><AppText style={[styles.segmentText, { color: model.loanDue === day ? theme.text : theme.muted }]}>{ordinal(day)}</AppText></TouchableOpacity>)}</View></> : <AppText style={[styles.help, { color: theme.muted }]}>No loan payment will show in Coming up.</AppText>}
               <View style={[styles.card, { backgroundColor: theme.primaryWash, borderColor: theme.primaryWash }, styles.row, { marginBottom: 0 }]}><AppText style={[styles.rowValue, { color: theme.text }]}>Fixed each month</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 18, marginTop: 0 }]}>{formatMoney0(budget.fixedUsd)}</AppText></View>
             </View>
           ) : null}
@@ -1036,10 +1093,13 @@ export default function App() {
     const leftAbsUsd = Math.abs(budget.leftTodayUsd.amountMinor) / 100;
     const leftFmt = model.baseCur === 'KHR' ? khr(leftAbsUsd * model.rate) : formatMoney(money(Math.abs(budget.leftTodayUsd.amountMinor), 'USD'));
     const leftAlt = model.baseCur === 'KHR' ? usd(leftAbsUsd) : khr(leftAbsUsd * model.rate);
+    const hasLoanPayment = model.billReminders && model.loan > 0 && !model.paidBills.loan;
+    const hasRentPayment = model.billReminders && model.rent + model.utilities > 0 && !model.paidBills.rent;
+    const hasUpcoming = hasLoanPayment || hasRentPayment || model.ious.length > 0;
     return (
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <View style={styles.brandRow}><View style={[styles.logo, { backgroundColor: theme.primary }]}><AppText style={styles.logoText}>៛</AppText></View><View><AppText style={[styles.greet, { color: theme.muted }]}>{greetingFor()}</AppText><AppText style={[styles.title, { color: theme.text }]}>Today's budget</AppText></View></View>
+          <View style={{ flex: 1 }}><AppText style={[styles.greet, { color: theme.muted }]}>{greetingFor()}</AppText><AppText style={[styles.title, { color: theme.text }]}>Today's budget</AppText></View>
           <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => updateModel((current) => ({ ...current, dark: !current.dark }))}><MaterialIcons name={model.dark ? 'light-mode' : 'dark-mode'} size={20} color={theme.muted} /></TouchableOpacity>
         </View>
         <View style={styles.ringWrap}>
@@ -1059,15 +1119,18 @@ export default function App() {
           {model.swept ? <View style={[styles.sweep, { backgroundColor: `${theme.green}1f` }]}><MaterialIcons name="celebration" size={18} color={theme.green} /><AppText style={[styles.chipText, { color: theme.green, fontFamily: FONT.bold }]}>Savings goal reached this month</AppText></View> : budget.leftTodayUsd.amountMinor > 0 ? <TouchableOpacity style={[styles.sweep, { backgroundColor: theme.primaryWash }]} onPress={sweepLeftover}><MaterialIcons name="savings" size={18} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>Sweep {usd(budget.leftTodayUsd.amountMinor / 100)} leftover into savings</AppText></TouchableOpacity> : null}
         </TouchableOpacity>
         {topGoals.length > 0 ? <><SectionHeader title={topGoals.length > 1 ? 'Top goals' : 'Goal'} action="All goals" theme={theme} onAction={() => go('goals')} />{topGoals.map((goal) => <TouchableOpacity key={goal.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line, marginTop: 0, marginBottom: 10 }]} onPress={() => go('goals')}><View style={[styles.expenseRow, { borderBottomWidth: 0, paddingVertical: 0, marginBottom: 12 }]}><View style={[styles.bubble, { backgroundColor: `${theme.primary}1f` }]}><Glyph name={goal.icon} color={theme.primary} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text }]}>{goal.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{amountLabel(goal.perMonth, goal.cur)}/month</AppText>{monthsToGo(goal) ? <AppText style={[styles.itemSub, { color: theme.muted }]}>{monthsToGo(goal)}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(goal.saved, goal.cur)}</AppText></View><View style={[styles.track, { backgroundColor: theme.surface2 }]}><View style={[styles.fill, { width: `${Math.min(100, (goal.saved / goal.target) * 100)}%`, backgroundColor: theme.primary }]} /></View></TouchableOpacity>)}</> : null}
+        {topGoals.length === 0 ? <><SectionHeader title="Goals" action="New goal" theme={theme} onAction={() => setSheet('goal')} /><EmptyState icon="flag" title="Start a savings goal" body="Add a trip, emergency fund, or anything you want future money to protect." theme={theme} /></> : null}
         <SectionHeader title="Coming up" action="+ Borrowed money" theme={theme} onAction={() => { setDrafts((current) => ({ ...current, iouPerson: '', iouAmount: '', iouDue: '', iouEditId: null })); setSheet('iou'); }} />
-        {model.billReminders && !model.paidBills.loan ? <Upcoming icon="savings" color="#7c5cff" title="Loan repayment" subtitle={dueText(model.loanDue)} amount={usd(model.loan)} theme={theme} onPress={() => setSheet('loan')} onDone={() => markBillPaid('loan', 'Loan repayment')} /> : null}
-        {model.billReminders && !model.paidBills.rent ? <Upcoming icon="receipt-long" color="#d98a00" title="Rent & utilities" subtitle={dueText(model.rentDue)} amount={usd(model.rent + model.utilities)} theme={theme} onPress={() => setSheet('fixed')} onDone={() => markBillPaid('rent', 'Rent & utilities')} /> : null}
+        {hasLoanPayment ? <Upcoming icon="savings" color="#7c5cff" title="Loan repayment" subtitle={dueText(model.loanDue)} amount={usd(model.loan)} theme={theme} onPress={() => setSheet('loan')} onDone={() => markBillPaid('loan', 'Loan repayment')} /> : null}
+        {hasRentPayment ? <Upcoming icon="receipt-long" color="#d98a00" title="Rent & utilities" subtitle={dueText(model.rentDue)} amount={usd(model.rent + model.utilities)} theme={theme} onPress={() => setSheet('fixed')} onDone={() => markBillPaid('rent', 'Rent & utilities')} /> : null}
         {model.ious.map((iou) => <Upcoming key={iou.id} icon="account-balance-wallet" color="#3ba6d4" title={`Pay back ${iou.person}`} subtitle={`Borrowed · due ${iou.due}`} amount={amountLabel(iou.amount, iou.cur)} theme={theme} onPress={() => { setDrafts((current) => ({ ...current, iouPerson: iou.person, iouAmount: String(iou.amount), iouDue: iou.due, iouEditId: iou.id })); setSheet('iou'); }} onDone={() => settleIou(iou.id, iou.person)} />)}
+        {!hasUpcoming ? <EmptyState icon="check-circle" title="Hooray, no payments coming up" body="Rent, loan, and borrowed-money reminders will appear here when they apply." theme={theme} /> : null}
         <SectionHeader title="Today" action="Summary" theme={theme} onAction={() => go('insights')} />
         {todayExpenses.map((expense) => {
           const cat = categoryFor(model.categories, expense.cat);
           return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><View style={{ alignItems: 'flex-end' }}><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></View><TouchableOpacity onPress={() => deleteExpense(expense.id)} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="close" size={18} color={theme.faint} /></TouchableOpacity></TouchableOpacity>;
         })}
+        {todayExpenses.length === 0 ? <EmptyState icon="edit-note" title="Start recording today" body="Tap + when you spend. Today's list stays quiet until there is something to track." theme={theme} /> : null}
       </ScrollView>
     );
   }
@@ -1096,6 +1159,7 @@ export default function App() {
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {renderTopBar('Categories', 'Where your Wants budget is going this month.')}
         <View style={styles.grid}>{model.categories.filter((cat) => cat.budgetUsd > 0).map((cat) => { const spentUsd = categoryMonthSpentUsd(cat.key); const pct = Math.round((spentUsd / cat.budgetUsd) * 100); const over = spentUsd > cat.budgetUsd; return <TouchableOpacity key={cat.key} style={[styles.catCard, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedCat: cat.key })); go('detail'); }}><View style={styles.row}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><MaterialIcons name="chevron-right" size={20} color={theme.faint} /></View><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14, marginTop: 10 }]}>{cat.label}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 2 }]}>{usd(spentUsd)} of {usd0(cat.budgetUsd)}</AppText><View style={[styles.track, { backgroundColor: theme.surface2, height: 7, marginTop: 11 }]}><View style={[styles.fill, { backgroundColor: over ? theme.red : cat.color, width: `${Math.min(100, pct)}%` }]} /></View><AppText style={[styles.itemSub, { color: over ? theme.red : theme.muted, fontFamily: FONT.bold, marginTop: 8 }]}>{pct}% used</AppText></TouchableOpacity>; })}</View>
+        {model.categories.filter((cat) => cat.budgetUsd > 0).length === 0 ? <EmptyState icon="category" title="Start with a category" body="Add a spending bucket before recording expenses." theme={theme} /> : null}
         <TouchableOpacity style={[styles.dashed, { borderColor: theme.faint }]} onPress={() => openCatSheet(null)}><MaterialIcons name="add" size={20} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>Add category</AppText></TouchableOpacity>
       </ScrollView>
     );
@@ -1109,6 +1173,7 @@ export default function App() {
         <View style={[styles.card, styles.row, { backgroundColor: theme.surface, borderColor: theme.line, marginBottom: 0 }]}><View style={{ flex: 1 }}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 6 }]}>Spent this month</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 32, marginTop: 0 }]}>{usd(categoryMonthSpentUsd(selectedCategory.key))}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 2 }]}>of {usd0(selectedCategory.budgetUsd)} budget</AppText></View><View style={[styles.bubbleLarge, { backgroundColor: `${selectedCategory.color}22`, width: 56, height: 56, borderRadius: 18 }]}><Glyph name={selectedCategory.icon} size={30} color={selectedCategory.color} /></View></View>
         <SectionHeader title="Transactions" theme={theme} />
         {txns.map((expense) => <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${selectedCategory.color}22` }]}><Glyph name={selectedCategory.icon} color={selectedCategory.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.date} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>)}
+        {txns.length === 0 ? <EmptyState icon="receipt-long" title="No transactions yet" body="Expenses in this category will show up here after you record them." theme={theme} /> : null}
       </ScrollView>
     );
   }
@@ -1130,6 +1195,7 @@ export default function App() {
           });
           return <Animated.View key={goal.id} onLayout={(event) => { goalHeights[goal.id] = event.nativeEvent.layout.height; }} style={[styles.card, { backgroundColor: theme.surface, borderColor: isDragging ? theme.primary : theme.line }, isDragging && { transform: [{ translateY: dragY }], zIndex: 20, elevation: 10, shadowColor: '#191c3a', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 12 } }]}><View style={[styles.expenseRow, { borderBottomWidth: 0, paddingVertical: 0 }]}>{model.goals.length > 1 ? <View {...pan.panHandlers} style={{ paddingVertical: 8, paddingRight: 6, marginLeft: -4 }}><MaterialIcons name="drag-indicator" size={22} color={theme.faint} /></View> : null}<View style={[styles.bubble, { backgroundColor: `${theme.primary}1f` }]}><Glyph name={goal.icon} color={theme.primary} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text }]}>{goal.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{amountLabel(goal.perMonth, goal.cur)}/month</AppText>{monthsToGo(goal) ? <AppText style={[styles.itemSub, { color: theme.muted }]}>{monthsToGo(goal)}</AppText> : null}</View><TouchableOpacity onPress={() => updateModel((current) => ({ ...current, goals: current.goals.filter((item) => item.id !== goal.id) }))} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="delete" size={20} color={theme.faint} /></TouchableOpacity></View><View style={[styles.row, { marginTop: 14, marginBottom: 7 }]}><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 18, marginTop: 0 }]}>{amountLabel(goal.saved, goal.cur)}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>of {amountLabel(goal.target, goal.cur)} · {Math.round((goal.saved / goal.target) * 100)}%</AppText></View><View style={[styles.track, { backgroundColor: theme.surface2 }]}><View style={[styles.fill, { width: `${Math.min(100, (goal.saved / goal.target) * 100)}%`, backgroundColor: theme.primary }]} /></View>{goal.saved < goal.target && goal.perMonth > 0 ? <TouchableOpacity style={[styles.sweep, { backgroundColor: theme.primaryWash }]} onPress={() => addGoalContribution(goal.id)}><MaterialIcons name="savings" size={18} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>Add {amountLabel(goal.perMonth, goal.cur)} this month</AppText></TouchableOpacity> : <View style={[styles.goalBadge, { backgroundColor: `${theme.green}1f` }]}><MaterialIcons name="celebration" size={18} color={theme.green} /><AppText style={[styles.chipText, { color: theme.green, fontFamily: FONT.bold }]}>Goal reached</AppText></View>}</Animated.View>;
         })}
+        {model.goals.length === 0 ? <EmptyState icon="flag" title="Start a savings goal" body="Create the first thing you want your money to move toward." theme={theme} /> : null}
         <TouchableOpacity style={[styles.dashed, { borderColor: theme.faint }]} onPress={() => setSheet('goal')}><MaterialIcons name="add" size={20} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>New goal</AppText></TouchableOpacity>
       </ScrollView>
     );
@@ -1174,7 +1240,7 @@ export default function App() {
         </View>
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><View style={[styles.row, { marginBottom: 12 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Spending activity</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>last 5 weeks</AppText></View></View>
           <View onLayout={(event) => setHeatWidth(event.nativeEvent.layout.width)}>{heatSize > 0 ? heatRows.map((row, rowIndex) => <View key={rowIndex} style={{ flexDirection: 'row', justifyContent: row.length === 7 ? 'space-between' : 'flex-start', gap: row.length === 7 ? 0 : heatGap, marginTop: rowIndex === 0 ? 0 : heatGap }}>{row.map((cell) => <TouchableOpacity key={cell.index} style={{ width: heatSize, height: heatSize, borderRadius: 5, backgroundColor: heatColor(cell.status, theme) }} onPress={() => showToast(`${cell.label} · ${usd(cell.spentUsdCents / 100)}`)} />)}</View>) : null}</View>
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}><AppText style={[styles.itemSub, { color: theme.muted }]}>saved</AppText>{['#1f8a5b', '#a9dcc4', '#e0a63a', '#e0603a'].map((c) => <View key={c} style={{ width: 13, height: 13, borderRadius: 4, backgroundColor: c }} />)}<AppText style={[styles.itemSub, { color: theme.muted }]}>over</AppText></View>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}><AppText style={[styles.itemSub, { color: theme.muted }]}>saved</AppText>{[theme.heat.savedHigh, theme.heat.near, theme.heat.over, theme.heat.overHigh].map((c) => <View key={c} style={{ width: 13, height: 13, borderRadius: 4, backgroundColor: c }} />)}<AppText style={[styles.itemSub, { color: theme.muted }]}>over</AppText></View>
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
             <View style={[styles.statMini, { backgroundColor: theme.surface2 }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 4, fontSize: 11 }]}>Spent most</AppText><AppText style={[styles.amount, { color: theme.text, textAlign: 'left' }]}>{spentMost >= 0 ? `${dayLabel(spentMost)} · ${usd(chartHistory[spentMost])}` : '—'}</AppText></View>
             <View style={[styles.statMini, { backgroundColor: theme.surface2 }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 4, fontSize: 11 }]}>Best saving day</AppText><AppText style={[styles.amount, { color: theme.text, textAlign: 'left' }]}>{savedMost >= 0 ? `${dayLabel(savedMost)} · ${usd(chartHistory[savedMost])}` : '—'}</AppText></View>
@@ -1208,6 +1274,8 @@ export default function App() {
         {rows.map((row) => <TouchableOpacity key={row[0]} style={[styles.settingsRow, { borderColor: theme.line }]} onPress={() => (row[2] === 'categories' ? go('categories') : setSheet(row[2]))}><View style={[styles.settingsIcon, { backgroundColor: theme.surface2 }]}><MaterialIcons name={row[3]} size={21} color={theme.muted} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>{row[0]}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{row[1]}</AppText></View><MaterialIcons name="chevron-right" size={22} color={theme.faint} /></TouchableOpacity>)}
         <TouchableOpacity style={[styles.settingsRow, { borderColor: theme.line }]} onPress={() => updateModel((current) => ({ ...current, billReminders: !current.billReminders }))}><View style={[styles.settingsIcon, { backgroundColor: theme.surface2 }]}><MaterialIcons name="notifications" size={21} color={theme.muted} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Bill reminders</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{model.billReminders ? 'On' : 'Off'}</AppText></View><MaterialIcons name={model.billReminders ? 'toggle-on' : 'toggle-off'} size={30} color={model.billReminders ? theme.primary : theme.faint} /></TouchableOpacity>
         <TouchableOpacity style={[styles.settingsRow, { borderColor: theme.line }]} onPress={() => updateModel((current) => ({ ...current, dark: !current.dark }))}><View style={[styles.settingsIcon, { backgroundColor: theme.surface2 }]}><MaterialIcons name={model.dark ? 'dark-mode' : 'light-mode'} size={21} color={theme.muted} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Appearance</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{model.dark ? 'Dark mode' : 'Light mode'}</AppText></View><MaterialIcons name={model.dark ? 'toggle-on' : 'toggle-off'} size={30} color={model.dark ? theme.primary : theme.faint} /></TouchableOpacity>
+        <TouchableOpacity style={[styles.settingsRow, { borderColor: theme.line }]} onPress={exportJsonBackup}><View style={[styles.settingsIcon, { backgroundColor: theme.surface2 }]}><MaterialIcons name="file-download" size={21} color={theme.muted} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Export JSON backup</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>Save a full restorable copy of this device</AppText></View><MaterialIcons name="ios-share" size={22} color={theme.faint} /></TouchableOpacity>
+        <TouchableOpacity style={[styles.settingsRow, { borderColor: theme.line }]} onPress={importJsonBackup}><View style={[styles.settingsIcon, { backgroundColor: theme.surface2 }]}><MaterialIcons name="file-upload" size={21} color={theme.muted} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Import JSON backup</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>Restore from a Luy Khnom backup file</AppText></View><MaterialIcons name="chevron-right" size={22} color={theme.faint} /></TouchableOpacity>
         <View style={{ alignItems: 'center', marginTop: 32, gap: 6, opacity: 0.7 }}><View style={styles.brandRow}><View style={[styles.logo, { backgroundColor: theme.primary, width: 26, height: 26, borderRadius: 9 }]}><AppText style={[styles.logoText, { fontSize: 14 }]}>៛</AppText></View><AppText style={[styles.brandName, { color: theme.text, fontSize: 14 }]}>Luy Khnom</AppText></View><AppText style={[styles.itemSub, { color: theme.muted }]}>Spend calm · v1.0</AppText></View>
       </ScrollView>
     );
@@ -1223,7 +1291,7 @@ export default function App() {
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
             {sheet === 'income' ? <View><SheetInput label="Monthly salary" value={String(model.salary)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, salary: Number(value) || 0 }))} /><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 7 }]}>{model.salaryCur === 'KHR' ? `≈ ${usd(model.salary / model.rate)}` : `≈ ${khr(model.salary * model.rate)}`}</AppText><AppText style={[styles.label, { color: theme.muted }]}>Currency</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{(['USD', 'KHR'] as Currency[]).map((cur) => <TouchableOpacity key={cur} style={[styles.segmentButton, model.salaryCur === cur && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, salaryCur: cur }))}><AppText style={[styles.segmentText, { color: model.salaryCur === cur ? theme.text : theme.muted }]}>{cur === 'USD' ? 'USD ($)' : 'KHR (៛)'}</AppText></TouchableOpacity>)}</View></View> : null}
             {sheet === 'fixed' ? <View><MoneyField label="Rent" initialAmount={model.rent} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: value }))} /><MoneyField label="Utilities (monthly avg)" initialAmount={model.utilities} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, utilities: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Both due each month</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((d) => <TouchableOpacity key={d} style={[styles.segmentButton, model.rentDue === d && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, rentDue: d }))}><AppText style={[styles.segmentText, { color: model.rentDue === d ? theme.text : theme.muted }]}>{ordinal(d)}</AppText></TouchableOpacity>)}</View></View> : null}
-            {sheet === 'loan' ? <View><MoneyField label="Monthly repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Due each month</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((d) => <TouchableOpacity key={d} style={[styles.segmentButton, model.loanDue === d && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loanDue: d }))}><AppText style={[styles.segmentText, { color: model.loanDue === d ? theme.text : theme.muted }]}>{ordinal(d)}</AppText></TouchableOpacity>)}</View></View> : null}
+            {sheet === 'loan' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Loan</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}><TouchableOpacity style={[styles.segmentButton, model.loan <= 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: 0, paidBills: { ...current.paidBills, loan: true } }))}><AppText style={[styles.segmentText, { color: model.loan <= 0 ? theme.text : theme.muted }]}>No loan</AppText></TouchableOpacity><TouchableOpacity style={[styles.segmentButton, model.loan > 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: current.loan > 0 ? current.loan : 50, paidBills: { ...current.paidBills, loan: false } }))}><AppText style={[styles.segmentText, { color: model.loan > 0 ? theme.text : theme.muted }]}>I have a loan</AppText></TouchableOpacity></View>{model.loan > 0 ? <><MoneyField label="Monthly repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Due each month</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((d) => <TouchableOpacity key={d} style={[styles.segmentButton, model.loanDue === d && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loanDue: d }))}><AppText style={[styles.segmentText, { color: model.loanDue === d ? theme.text : theme.muted }]}>{ordinal(d)}</AppText></TouchableOpacity>)}</View></> : <AppText style={[styles.help, { color: theme.muted }]}>No loan payment will show in Coming up.</AppText>}</View> : null}
             {sheet === 'method' ? <View>
               {(['balanced', 'saver', 'custom'] as BudgetMode[]).map((mode) => <TouchableOpacity key={mode} style={[styles.methodCard, { backgroundColor: model.method === mode ? theme.primaryWash : theme.surface, borderColor: model.method === mode ? theme.primary : theme.line }]} onPress={() => updateModel((current) => ({ ...current, method: mode }))}><AppText style={[styles.itemTitle, { color: theme.text }]}>{mode === 'balanced' ? 'Balanced · 50/30/20' : mode === 'saver' ? 'Saver · 40/30/30' : `Custom · ${model.custom.needs}/${model.custom.wants}/${model.custom.save}`}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 5 }]}>{mode === 'balanced' ? '50% Needs · 30% Wants · 20% Savings' : mode === 'saver' ? 'Tighter spending, faster savings' : 'Design your own Needs/Wants/Savings split'}</AppText></TouchableOpacity>)}
               {model.method === 'custom' ? <View>
@@ -1250,6 +1318,7 @@ export default function App() {
             {sheet === 'month' ? <View>
               <View style={[styles.row, { marginTop: 10 }]}><AppText style={[styles.itemSub, { color: theme.muted }]}>Spent {formatMoney(budget.spentMonthUsd)} of {formatMoney0(budget.spendableMonthUsd)}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{monthExpenses.length} transaction{monthExpenses.length === 1 ? '' : 's'}</AppText></View>
               {monthExpenses.map((expense) => { const cat = categoryFor(model.categories, expense.cat); return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.date} · {cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>; })}
+              {monthExpenses.length === 0 ? <EmptyState icon="calendar-month" title="No transactions this month" body="Start recording expenses and this month will fill itself in." theme={theme} /> : null}
             </View> : null}
             {sheet === 'day' ? <View><View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0 }]}>Spent</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 26 }]}>{usd(chartHistory[drafts.selectedDay] ?? 0)}</AppText></View></View> : null}
             {sheet && ['income', 'fixed', 'loan', 'method', 'currency', 'reminder'].includes(sheet) ? <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={() => setSheet(null)}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Done</AppText></TouchableOpacity> : null}
@@ -1281,7 +1350,7 @@ export default function App() {
         {toast ? <View style={[styles.toast, { backgroundColor: theme.text }]}><MaterialIcons name="check-circle" size={18} color={theme.green} /><AppText style={[styles.toastText, { color: theme.page }]}>{toast}</AppText></View> : null}
         <Modal visible={celebrate !== null} transparent animationType="fade" onRequestClose={() => setCelebrate(null)}>
           <View style={styles.celebrateScrim}>
-            <View style={[styles.celebrateCard, { backgroundColor: theme.surface }]}>
+            <View style={[styles.celebrateCard, { backgroundColor: theme.surface, borderColor: theme.line, borderWidth: 1 }]}>
               <View style={[styles.celebrateIcon, { backgroundColor: theme.primaryWash }]}><MaterialIcons name="celebration" size={38} color={theme.primary} /></View>
               <AppText style={[styles.celebrateTitle, { color: theme.text }]}>{celebrate?.title}</AppText>
               <AppText style={[styles.celebrateBody, { color: theme.muted }]}>{celebrate?.body}</AppText>
@@ -1303,6 +1372,20 @@ function Row({ label, value, theme, strong }: { label: string; value: string; th
 
 function SectionHeader({ title, action, theme, onAction }: { title: string; action?: string; theme: typeof LIGHT; onAction?: () => void }) {
   return <View style={styles.sectionHeader}><AppText style={[styles.sectionTitle, { color: theme.muted }]}>{title}</AppText>{action ? <TouchableOpacity onPress={onAction}><AppText style={[styles.sectionAction, { color: theme.primary }]}>{action}</AppText></TouchableOpacity> : null}</View>;
+}
+
+function EmptyState({ icon, title, body, theme }: { icon: IconName; title: string; body: string; theme: typeof LIGHT }) {
+  return (
+    <View style={[styles.emptyState, { backgroundColor: theme.surface, borderColor: theme.line }]}>
+      <View style={[styles.emptyIcon, { backgroundColor: theme.primaryWash }]}>
+        <MaterialIcons name={icon} size={22} color={theme.primary} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <AppText style={[styles.itemTitle, { color: theme.text }]}>{title}</AppText>
+        <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 4 }]}>{body}</AppText>
+      </View>
+    </View>
+  );
 }
 
 function Pill({ text, icon, theme }: { text: string; icon: IconName; theme: typeof LIGHT }) {
@@ -1377,11 +1460,11 @@ function NavItem({ item, active, theme, onGo }: { item: readonly [Screen, IconNa
 
 function heatColor(status: string, theme: typeof LIGHT) {
   if (status === 'none') return theme.surface2;
-  if (status === 'saved-high') return '#1f8a5b';
-  if (status === 'saved') return '#57b98a';
-  if (status === 'near') return '#a9dcc4';
-  if (status === 'over') return '#e0a63a';
-  return '#e0603a';
+  if (status === 'saved-high') return theme.heat.savedHigh;
+  if (status === 'saved') return theme.heat.saved;
+  if (status === 'near') return theme.heat.near;
+  if (status === 'over') return theme.heat.over;
+  return theme.heat.overHigh;
 }
 
 function sheetTitle(sheet: Sheet) {
@@ -1466,6 +1549,8 @@ const styles = StyleSheet.create({
   catCard: { width: '48%', borderWidth: 1, borderRadius: 22, padding: 15, ...CARD_SHADOW },
   dashed: { borderWidth: 1.5, borderStyle: 'dashed', borderRadius: 20, padding: 16, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 16 },
   sweep: { borderRadius: 14, padding: 13, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
+  emptyState: { borderWidth: 1, borderRadius: 20, padding: 16, flexDirection: 'row', alignItems: 'center', gap: 12, marginBottom: 10, ...CARD_SHADOW },
+  emptyIcon: { width: 44, height: 44, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   goalBadge: { borderRadius: 14, padding: 12, flexDirection: 'row', gap: 8, alignItems: 'center', justifyContent: 'center', marginTop: 14 },
   statusCard: { borderRadius: 24, padding: 22, marginTop: 14, shadowColor: '#191c3a', shadowOpacity: 0.18, shadowRadius: 20, shadowOffset: { width: 0, height: 12 }, elevation: 5 },
   statusPill: { flexDirection: 'row', alignItems: 'center', alignSelf: 'flex-start', gap: 6, backgroundColor: 'rgba(255,255,255,.22)', paddingVertical: 6, paddingHorizontal: 12, borderRadius: 999 },
