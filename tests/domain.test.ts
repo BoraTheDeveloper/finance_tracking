@@ -1,0 +1,56 @@
+import { describe, expect, it } from 'vitest';
+import { BALANCED, summarizeBudget } from '../src/domain/budget';
+import { parseExpenseText } from '../src/domain/expenseParser';
+import { DEFAULT_CATEGORIES, INITIAL_TODAY } from '../src/domain/fixtures';
+import { convertMoney, formatMoney, money, parseMoney } from '../src/domain/money';
+
+describe('money', () => {
+  it('stores USD cents and KHR whole riel', () => {
+    expect(parseMoney('10.25', 'USD')).toEqual({ amountMinor: 1025, currency: 'USD' });
+    expect(parseMoney('1000', 'KHR')).toEqual({ amountMinor: 1000, currency: 'KHR' });
+  });
+
+  it('converts KHR/USD deterministically at 4100', () => {
+    expect(convertMoney(money(4000, 'KHR'), 'USD', { khrPerUsd: 4100 })).toEqual(money(98, 'USD'));
+    expect(convertMoney(money(1000, 'USD'), 'KHR', { khrPerUsd: 4100 })).toEqual(money(41000, 'KHR'));
+  });
+});
+
+describe('expense parser', () => {
+  it('parses entertainment USD text', () => {
+    const parsed = parseExpenseText('netflix, 10$');
+    expect(parsed.amount).toEqual(money(1000, 'USD'));
+    expect(parsed.categoryKey).toBe('ent');
+    expect(parsed.label).toBe('netflix');
+  });
+
+  it('parses food KHR text', () => {
+    const parsed = parseExpenseText('food, 1000 riels');
+    expect(parsed.amount).toEqual(money(1000, 'KHR'));
+    expect(parsed.categoryKey).toBe('food');
+  });
+});
+
+describe('budget summary', () => {
+  it('matches prototype fixture-level math', () => {
+    const summary = summarizeBudget({
+      salary: money(120000, 'USD'),
+      fixedCosts: [money(35000, 'USD'), money(3500, 'USD'), money(15000, 'USD')],
+      savedSoFar: money(23200, 'USD'),
+      categorySpend: DEFAULT_CATEGORIES,
+      todayExpenses: INITIAL_TODAY.map((expense) => expense.amount),
+      method: BALANCED,
+      rate: { khrPerUsd: 4100 },
+      daysLeftIncludingToday: 27,
+      rolloverYesterday: money(700, 'USD'),
+    });
+
+    expect(formatMoney(summary.spendableMonthUsd)).toBe('$425.00');
+    expect(formatMoney(summary.savingsTargetUsd)).toBe('$240.00');
+    expect(formatMoney(summary.spentMonthUsd)).toBe('$74.68');
+    expect(formatMoney(summary.baseDailyUsd)).toBe('$12.97');
+    expect(formatMoney(summary.dailyBudgetUsd)).toBe('$19.97');
+    expect(formatMoney(summary.spentTodayUsd)).toBe('$8.48');
+    expect(formatMoney(summary.leftTodayUsd)).toBe('$11.49');
+  });
+});

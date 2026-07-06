@@ -1,0 +1,706 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Kantumruy+Pro:wght@400;600;700;800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,400,0..1,0&icon_names=account_balance_wallet,add,arrow_back,arrow_forward,auto_awesome,battery_full,bolt,book,brush,cake,calendar_today,card_giftcard,category,celebration,chair,check_circle,checkroom,chevron_right,close,currency_exchange,dark_mode,delete,directions_bus,directions_car,done,download,edit,expand_more,fastfood,fitness_center,flight,grid_view,home,insights,light_mode,lightbulb,local_bar,local_cafe,local_gas_station,medical_services,medication,movie,music_note,notifications,pets,phone_iphone,pie_chart,receipt_long,restaurant,savings,schedule,school,self_care,settings,shopping_bag,shopping_cart,signal_cellular_alt,spa,sports_esports,train,trending_up,wallet,water_drop,wifi,work&display=block" rel="stylesheet">
+<style>
+*{box-sizing:border-box}body{margin:0}
+.app{--page:#e7e8ef;--bg:#f5f6f8;--surface:#fff;--surface2:#f0f1f6;--text:#1a1b22;--muted:#71727e;--faint:#a4a5af;--line:#ecedf1;--primary:#4f46e5;--pw:#ecebfd;--green:#1f8a5b;--amber:#c8820a;--red:#d84c3f;--gw:#e5f2ec;font-family:'Plus Jakarta Sans','Kantumruy Pro',system-ui,sans-serif;transition:background .3s}
+.app.dark{--page:#040508;--bg:#0f1117;--surface:#191b22;--surface2:#20222c;--text:#eceef4;--muted:#9498a6;--faint:#5f616d;--line:#262932;--primary:#8b83ff;--pw:#26243f;--green:#3fbc86;--amber:#e0a63a;--red:#f0685c;--gw:#152a22}
+.msr{font-family:'Material Symbols Rounded';font-weight:normal;font-style:normal;line-height:1;letter-spacing:normal;text-transform:none;white-space:nowrap;direction:ltr;-webkit-font-smoothing:antialiased;font-variation-settings:'FILL' 0,'wght' 400,'GRAD' 0,'opsz' 24}
+.msr.fill{font-variation-settings:'FILL' 1,'wght' 400,'GRAD' 0,'opsz' 24}
+.stage{min-height:100vh;background:var(--page);display:flex;flex-direction:column;align-items:center;gap:16px;padding:26px 16px 60px;transition:background .3s}
+.toolbar{display:flex;flex-wrap:wrap;gap:7px;align-items:center;justify-content:center;max-width:600px}
+.jchip{font:600 12px/1 'Plus Jakarta Sans';padding:8px 12px;border-radius:999px;background:var(--surface);color:var(--muted);border:1px solid var(--line);cursor:pointer;transition:.15s}
+.jchip.on{background:var(--primary);color:#fff;border-color:var(--primary)}
+.jchip .msr{font-size:15px;vertical-align:-3px;margin-right:5px}
+.phone{width:392px;height:844px;background:#0a0a0c;border-radius:48px;padding:5px;position:relative;flex:none;box-shadow:0 45px 90px -35px rgba(30,28,60,.55),0 0 0 1px rgba(0,0,0,.05)}
+.app.dark .phone{box-shadow:0 45px 100px -35px rgba(0,0,0,.85)}
+.screen{position:absolute;inset:5px;border-radius:43px;overflow:hidden;background:var(--bg);color:var(--text);display:flex;flex-direction:column;transition:background .3s,color .3s}
+.statusbar{height:40px;flex:none;display:flex;align-items:center;justify-content:space-between;padding:10px 24px 0;font-size:13px;font-weight:700}
+.sbicons{display:flex;align-items:center;gap:5px}.sbicons .msr{font-size:16px}
+.body{flex:1;overflow-y:auto;overflow-x:hidden;position:relative}
+.scroll{padding:6px 20px 130px}
+.bnav{position:absolute;left:0;right:0;bottom:0;height:74px;background:var(--surface);border-top:1px solid var(--line);display:flex;padding:6px 6px 12px;z-index:5}
+.bnav.hide{display:none}
+.nav{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--muted);cursor:pointer;font-size:11px;font-weight:600}
+.nav .ib{width:56px;height:30px;border-radius:999px;display:flex;align-items:center;justify-content:center;transition:.15s}
+.nav .msr{font-size:23px}.nav.on{color:var(--primary)}.nav.on .ib{background:var(--pw)}
+.gesture{position:absolute;left:50%;transform:translateX(-50%);bottom:8px;width:120px;height:4px;border-radius:99px;background:var(--text);opacity:.22;z-index:20;pointer-events:none}
+.navfab{flex:none;align-self:center;width:56px;height:56px;border-radius:18px;background:var(--primary);color:#fff;border:none;display:flex;align-items:center;justify-content:center;margin:-24px 10px 0;box-shadow:0 12px 24px -8px var(--primary);cursor:pointer;transition:transform .15s}
+.navfab:active{transform:scale(.92)}
+.navfab .msr{font-size:28px}
+.card{background:var(--surface);border-radius:24px;padding:20px;border:1px solid var(--line)}
+.chip2{width:40px;height:40px;border-radius:14px;background:var(--surface);border:1px solid var(--line);display:flex;align-items:center;justify-content:center;color:var(--muted);cursor:pointer;flex:none}
+.chip2 .msr{font-size:20px}
+.chip2:disabled{opacity:.3;cursor:default}
+.hgreet{font-size:13px;font-weight:700;color:var(--muted)}
+.htitle{font-size:21px;font-weight:800;letter-spacing:-.02em}
+.ringwrap{position:relative;width:236px;height:236px;margin:14px auto 4px}
+.ring{width:236px;height:236px;transform:rotate(-90deg)}
+.ringbg{fill:none;stroke:var(--surface2);stroke-width:15}
+.ringfg{fill:none;stroke-width:15;stroke-linecap:round;transition:stroke-dashoffset .7s cubic-bezier(.4,0,.2,1),stroke .3s}
+.ringctr{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;text-align:center}
+.rlabel{font-size:11px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.09em}
+.rbig{font-size:50px;font-weight:800;letter-spacing:-.035em;font-variant-numeric:tabular-nums;line-height:1;margin-top:4px}
+.rkhr{font-size:13px;font-weight:600;color:var(--muted);margin-top:4px}
+.calc{display:flex;align-items:center;justify-content:center;gap:6px;margin:6px auto 0;font-size:12px;font-weight:600;color:var(--muted);background:var(--surface2);padding:8px 14px;border-radius:999px;width:fit-content}
+.calc b{color:var(--text)}
+.sec{font-size:13px;font-weight:700;color:var(--muted);margin:22px 4px 12px;display:flex;align-items:center;justify-content:space-between}
+.mrow{display:flex;align-items:center;justify-content:space-between;margin-bottom:7px;font-size:13px}
+.mrow .v{font-weight:700;font-variant-numeric:tabular-nums}
+.pbar{height:9px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-bottom:16px}
+.pfill{height:100%;border-radius:99px;transition:width .6s}
+.exp{display:flex;align-items:center;gap:12px;padding:13px 0;border-bottom:1px solid var(--line)}
+.delx{width:30px;height:30px;border-radius:99px;border:none;background:transparent;color:var(--faint);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;margin-left:4px}
+.delx:active{color:var(--red)}
+.delx .msr{font-size:18px}
+.undo{margin-left:12px;font-weight:800;text-decoration:underline;cursor:pointer}
+.conv{font-size:12px;color:var(--muted);font-weight:600;margin-top:7px;font-variant-numeric:tabular-nums}
+.enote{font-size:12px;color:var(--muted);margin-top:2px;font-style:italic}
+.heat{display:grid;grid-template-columns:repeat(7,1fr);gap:5px}
+.hcell{aspect-ratio:1;border-radius:5px}
+.hleg{width:13px;height:13px;border-radius:4px;flex:none}
+.statmini{flex:1;background:var(--surface2);border-radius:14px;padding:12px}
+.statlbl{font-size:11px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.04em}
+.statval{font-weight:800;font-size:15px;margin-top:4px;font-variant-numeric:tabular-nums}
+.ibub{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;flex:none}
+.ibub .msr{font-size:23px}
+.ename{font-weight:600;font-size:14px}.etime{font-size:12px;color:var(--muted);margin-top:1px}
+.eamt{font-weight:700;font-size:15px;font-variant-numeric:tabular-nums;text-align:right}
+.esub{font-size:11px;color:var(--faint);text-align:right;margin-top:1px}
+.pgtitle{font-size:26px;font-weight:800;letter-spacing:-.02em;padding:10px 4px 2px}
+.pgsub{color:var(--muted);font-size:14px;padding:0 4px 4px}
+.cgrid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:14px}
+.ccard{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:15px;cursor:pointer}
+.clabel{font-weight:700;font-size:14px;margin-top:10px}
+.cspent{font-size:12px;color:var(--muted);margin-top:2px;font-variant-numeric:tabular-nums}
+.cbar{height:7px;border-radius:99px;background:var(--surface2);overflow:hidden;margin-top:11px}
+.cfill{height:100%;border-radius:99px}
+.cover{font-size:11px;font-weight:700;margin-top:8px}
+.addinput{width:100%;border-radius:20px;padding:18px;font:600 18px 'Plus Jakarta Sans','Kantumruy Pro';color:var(--text);outline:none;background:var(--surface);border:2px solid var(--line);transition:border-color .2s}
+.addinput:focus{border-color:var(--primary)}
+.parsecard{background:var(--surface);border:1px solid var(--line);border-radius:22px;padding:18px;margin-top:16px}
+.aihdr{display:flex;align-items:center;gap:7px;font-size:12px;font-weight:700;color:var(--primary);text-transform:uppercase;letter-spacing:.05em}
+.aihdr .msr{font-size:17px}
+.pamt{font-size:38px;font-weight:800;letter-spacing:-.03em;font-variant-numeric:tabular-nums;margin-top:10px}
+.psub{font-size:13px;color:var(--muted);font-weight:600}
+.chiprow{display:flex;flex-wrap:wrap;gap:8px;padding:8px 0 2px}
+.catchip{display:flex;align-items:center;gap:6px;padding:10px 15px;border-radius:999px;border:1.5px solid var(--line);background:var(--surface);font-weight:600;font-size:13px;white-space:nowrap;cursor:pointer;flex:none;color:var(--muted);transition:.15s}
+.catchip .msr{font-size:18px}
+.btn{width:100%;height:56px;border-radius:18px;background:var(--primary);color:#fff;border:none;font:700 16px 'Plus Jakarta Sans','Kantumruy Pro';cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:.15s}
+.btn:disabled{opacity:.35}
+.btn.ghost{background:var(--surface2);color:var(--text)}
+.ilabel{font-size:12px;font-weight:700;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:20px 0 9px;display:block}
+.oinput{width:100%;padding:16px;border-radius:16px;border:2px solid var(--line);background:var(--surface);font:700 22px 'Plus Jakarta Sans','Kantumruy Pro';color:var(--text);outline:none;font-variant-numeric:tabular-nums}
+.oinput:focus{border-color:var(--primary)}
+.oinput.sm{font-size:18px;padding:14px}
+.seg{display:flex;background:var(--surface2);border-radius:14px;padding:4px;gap:4px}
+.seg button{flex:1;border:none;background:transparent;padding:11px;border-radius:10px;font:700 13px 'Plus Jakarta Sans','Kantumruy Pro';color:var(--muted);cursor:pointer;transition:.15s}
+.seg button.on{background:var(--surface);color:var(--text);box-shadow:0 2px 8px rgba(0,0,0,.1)}
+.dots{display:flex;gap:6px}
+.dot{width:8px;height:8px;border-radius:99px;background:var(--surface2)}
+.dot.on{width:22px;background:var(--primary)}
+.mcard{border:2px solid var(--line);border-radius:18px;padding:16px;cursor:pointer;margin-bottom:10px;transition:.15s}
+.mcard.on{border-color:var(--primary);background:var(--pw)}
+.bd{display:flex;height:14px;border-radius:99px;overflow:hidden;margin:16px 0 12px}
+.ofoot{position:absolute;left:0;right:0;bottom:0;padding:16px 20px 24px;background:var(--bg);border-top:1px solid var(--line)}
+.statuscard{border-radius:24px;padding:22px;color:#fff}
+.scpill{display:inline-flex;align-items:center;gap:6px;background:rgba(255,255,255,.22);padding:6px 12px;border-radius:999px;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em}
+.scbig{font-size:24px;font-weight:800;letter-spacing:-.02em;margin:14px 0 16px;line-height:1.15}
+.scstats{display:flex;gap:12px}
+.scstat{flex:1;background:rgba(255,255,255,.16);border-radius:16px;padding:13px}
+.scnum{font-size:22px;font-weight:800;font-variant-numeric:tabular-nums}
+.sclbl{font-size:11px;font-weight:600;opacity:.9;margin-top:2px}
+.tip{display:flex;gap:11px;background:rgba(255,255,255,.15);border-radius:16px;padding:14px;margin-top:12px;font-size:13px;line-height:1.45;font-weight:500}
+.tip .msr{font-size:20px;flex:none;margin-top:1px}
+.chart{display:flex;align-items:flex-end;gap:9px;height:150px;position:relative;padding-top:8px}
+.bcol{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:6px;height:100%;z-index:2}
+.bar{width:100%;background:var(--primary);border-radius:8px 8px 3px 3px;transition:height .6s}
+.bar.over{background:var(--amber)}
+.bday{font-size:10px;color:var(--muted);font-weight:600}
+.bline{position:absolute;left:0;right:0;border-top:2px dashed var(--faint);z-index:1}
+.blabel{position:absolute;right:0;transform:translateY(-100%);font-size:10px;font-weight:700;color:var(--faint);background:var(--bg);padding:0 4px}
+.srow{display:flex;align-items:center;gap:14px;padding:16px 4px;border-bottom:1px solid var(--line);cursor:pointer}
+.srow .lb{width:40px;height:40px;border-radius:12px;background:var(--surface2);display:flex;align-items:center;justify-content:center;color:var(--muted);flex:none}
+.srow .lb .msr{font-size:21px}
+.stitle{font-weight:600;font-size:14px}.sval{font-size:12px;color:var(--muted);margin-top:1px}
+.lock{position:absolute;inset:0;background:linear-gradient(165deg,#20244a 0%,#0c0d18 55%,#1a1230 100%);color:#fff;display:flex;flex-direction:column;align-items:center;padding:66px 20px 40px;z-index:30}
+.lockclock{font-size:78px;font-weight:300;letter-spacing:-.03em;line-height:1}
+.lockdate{opacity:.85;font-size:15px;font-weight:500;margin-top:2px}
+.lockclose{position:absolute;top:56px;right:22px;width:36px;height:36px;border-radius:99px;background:rgba(255,255,255,.16);border:none;color:#fff;display:flex;align-items:center;justify-content:center;cursor:pointer}
+.notifstack{margin-top:auto;width:100%;display:flex;flex-direction:column}
+.notif{width:100%;background:rgba(255,255,255,.13);backdrop-filter:blur(24px);-webkit-backdrop-filter:blur(24px);border-radius:22px;padding:16px;border:1px solid rgba(255,255,255,.16)}
+.nhdr{display:flex;align-items:center;gap:9px;margin-bottom:10px}
+.nlogo{width:26px;height:26px;border-radius:8px;background:var(--primary);display:flex;align-items:center;justify-content:center}
+.nlogo .msr{font-size:16px;color:#fff}
+.napp{font-size:12px;font-weight:700;flex:1}.ntime{font-size:12px;opacity:.7}
+.ntitle{font-weight:700;font-size:14px;margin-bottom:4px}
+.nbody{font-size:13px;line-height:1.5;opacity:.94}
+.toast{position:absolute;left:50%;transform:translateX(-50%);bottom:100px;background:var(--text);color:var(--bg);padding:12px 18px;border-radius:14px;font-weight:700;font-size:13px;display:flex;align-items:center;gap:8px;z-index:40;box-shadow:0 14px 34px -8px rgba(0,0,0,.4);animation:pop .25s}
+.toast .msr{font-size:18px;color:var(--green)}
+@keyframes pop{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
+.brandrow{display:flex;align-items:center;gap:10px}
+.blogo{width:34px;height:34px;border-radius:11px;background:var(--primary);display:flex;align-items:center;justify-content:center}
+.blogo .msr{color:#fff;font-size:20px}
+.bname{font-weight:800;font-size:17px;letter-spacing:-.01em}
+.duepill{font-size:11px;font-weight:600;color:var(--muted);background:var(--surface2);padding:5px 10px;border-radius:999px}
+.sheetscrim{position:absolute;inset:0;background:rgba(10,10,20,.42);z-index:50;display:flex;align-items:flex-end;animation:fadein .2s}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.sheet{width:100%;background:var(--bg);border-radius:28px 28px 0 0;padding:14px 20px 26px;box-shadow:0 -12px 44px rgba(0,0,0,.28);animation:sheetup .28s cubic-bezier(.2,.8,.2,1);max-height:88%;overflow-y:auto}
+@keyframes sheetup{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.grab{width:40px;height:4px;border-radius:99px;background:var(--faint);margin:0 auto 14px;opacity:.55}
+.sheethdr{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.sheettitle{font-size:19px;font-weight:800;letter-spacing:-.01em}
+.addcat{margin-top:14px;border:1.5px dashed var(--faint);border-radius:20px;padding:16px;display:flex;align-items:center;justify-content:center;gap:8px;color:var(--primary);font-weight:700;font-size:14px;cursor:pointer;transition:.15s}
+.addcat:active{transform:scale(.98)}
+.addcat .msr{font-size:20px}
+.iconbtn{width:46px;height:46px;border-radius:14px;border:1.5px solid var(--line);background:var(--surface);color:var(--muted);display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:.15s}
+.iconbtn.on{border-color:var(--primary);background:var(--pw);color:var(--primary)}
+.iconbtn .msr{font-size:22px}
+.swatch{width:38px;height:38px;border-radius:12px;border:3px solid transparent;cursor:pointer;padding:0;transition:.15s}
+.swatch.on{border-color:var(--text)}
+.empty{text-align:center;padding:30px 20px 10px;color:var(--muted)}
+.empty .msr{color:var(--faint)}
+.goalbadge{display:flex;align-items:center;gap:8px;background:var(--gw);color:var(--green);font-weight:700;font-size:13px;padding:12px 14px;border-radius:14px;margin-top:14px}
+.goalbadge .msr{font-size:18px}
+.sweepbtn{width:100%;margin-top:14px;border:none;background:var(--pw);color:var(--primary);font:700 13px 'Plus Jakarta Sans';padding:13px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.sweepbtn .msr{font-size:18px}
+.delbtn{width:100%;margin-top:10px;border:none;background:transparent;color:var(--red);font:700 14px 'Plus Jakarta Sans';padding:14px;border-radius:14px;display:flex;align-items:center;justify-content:center;gap:8px;cursor:pointer}
+.delbtn .msr{font-size:19px}
+.celebrate{position:absolute;inset:0;background:rgba(8,8,22,.55);z-index:60;display:flex;align-items:center;justify-content:center;padding:28px;animation:fadein .25s}
+.celcard{background:var(--surface);border-radius:26px;padding:32px 24px;text-align:center;box-shadow:0 30px 60px rgba(0,0,0,.4)}
+.celemoji{font-size:56px;animation:pop .4s}
+.celtitle{font-size:22px;font-weight:800;letter-spacing:-.02em;margin-top:10px}
+.celsub{font-size:14px;color:var(--muted);line-height:1.5;margin-top:8px}
+</style>
+</helmet>
+<div class="{{ appCls }}" style="{{ appStyle }}"><div class="stage">
+<div class="toolbar"><sc-for list="{{ jump }}" as="j" hint-placeholder-count="7"><div class="jchip {{ j.cls }}" onClick="{{ j.onClick }}"><span class="msr">{{ j.icon }}</span>{{ j.label }}</div></sc-for></div>
+<div class="phone"><div class="screen">
+<div class="statusbar"><span>9:41</span><div class="sbicons"><span class="msr">signal_cellular_alt</span><span class="msr">wifi</span><span class="msr">battery_full</span></div></div>
+<div class="body">
+
+<sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}"><div class="scroll">
+<div class="fx jb ac" style="margin:4px 4px 0"><div class="brandrow"><div class="blogo"><span class="msr fill">account_balance_wallet</span></div><div><div class="hgreet">{{ greet }}</div><div class="htitle">Today's budget</div></div></div><div class="chip2" onClick="{{ toggleDark }}"><span class="msr">{{ darkIcon }}</span></div></div>
+<div class="ringwrap"><svg class="ring" viewBox="0 0 236 236"><circle class="ringbg" cx="118" cy="118" r="100"></circle><circle class="ringfg" cx="118" cy="118" r="100" style="{{ ringStyle }}"></circle></svg><div class="ringctr"><div class="rlabel">{{ heroLabel }}</div><div class="rbig" style="{{ heroStyle }}">{{ leftFmt }}</div><div class="rkhr">{{ leftKhr }}</div></div></div>
+<div class="calc"><span class="msr" style="font-size:15px">bolt</span><span><b>{{ baseFmt }}</b> base + <b>{{ rolloverFmt }}</b> rolled over</span></div>
+<div class="calc" style="margin-top:8px"><span class="msr" style="font-size:15px">trending_up</span><span>Tomorrow ≈ <b>{{ tomorrowFmt }}</b> at this pace</span></div>
+<div class="card" style="margin-top:20px">
+<div class="fx jb ac" style="margin-bottom:16px"><span style="font-weight:700;font-size:14px">This month</span><span class="duepill">{{ daysLeftTxt }}</span></div>
+<div class="mrow"><span style="color:var(--muted)">Spent</span><span class="v">{{ spentMonthFmt }} <span style="color:var(--faint);font-weight:600">/ {{ spendableFmt }}</span></span></div>
+<div class="pbar"><div class="pfill" style="{{ monthFill }}"></div></div>
+<div class="mrow"><span style="color:var(--muted)">Saved so far</span><span class="v">{{ savedFmt }} <span style="color:var(--faint);font-weight:600">/ {{ savingsFmt }}</span></span></div>
+<div class="pbar" style="margin-bottom:0"><div class="pfill" style="{{ saveFill }}"></div></div>
+<sc-if value="{{ goalReached }}"><div class="goalbadge"><span class="msr fill">celebration</span>Savings goal reached this month 🎉</div></sc-if>
+<sc-if value="{{ sweepShow }}"><button class="sweepbtn" onClick="{{ sweep }}"><span class="msr">savings</span>Sweep {{ sweepFmt }} leftover into savings</button></sc-if>
+</div>
+<sc-if value="{{ hasGoals }}"><div class="sec"><span>Goal</span><a onClick="{{ goGoals }}" style="color:var(--primary);cursor:pointer;font-weight:700">All goals</a></div><div class="card" onClick="{{ goGoals }}" style="cursor:pointer"><div class="fx ac gap12" style="margin-bottom:12px"><div class="ibub" style="{{ topGoal.bub }}"><span class="msr fill">{{ topGoal.icon }}</span></div><div class="f1"><div class="ename" style="font-size:15px">{{ topGoal.name }}</div><div class="etime">{{ topGoal.monthsTxt }}</div></div><span style="font-weight:800;font-variant-numeric:tabular-nums">{{ topGoal.savedFmt }}</span></div><div class="pbar" style="margin-bottom:0"><div class="pfill" style="{{ topGoal.pctW }}"></div></div></div></sc-if>
+<sc-if value="{{ upcomingHas }}"><div class="sec"><span>Coming up</span><a onClick="{{ openIou }}" style="color:var(--primary);cursor:pointer;font-weight:700">+ Borrowed money</a></div><sc-for list="{{ upcoming }}" as="b" hint-placeholder-count="2"><div class="exp tap" onClick="{{ b.onRow }}"><div class="ibub" style="{{ b.bub }}"><span class="msr fill">{{ b.icon }}</span></div><div class="f1"><div class="ename">{{ b.label }}</div><div class="etime">{{ b.daysTxt }}</div></div><div class="eamt">{{ b.amtFmt }}</div><button class="delx" onClick="{{ b.onAction }}" aria-label="Mark paid"><span class="msr">done</span></button></div></sc-for></sc-if>
+<div class="sec"><span>Today</span><a onClick="{{ goInsights }}" style="color:var(--primary);cursor:pointer;font-weight:700">Summary</a></div>
+<sc-if value="{{ todayEmpty }}"><div class="empty"><span class="msr" style="font-size:36px">receipt_long</span><div style="font-weight:700;margin-top:10px;color:var(--text)">Nothing logged yet</div><div style="font-size:13px;margin-top:3px">Tap the + to add your first expense today.</div></div></sc-if>
+<sc-for list="{{ today }}" as="e" hint-placeholder-count="4"><div class="exp tap" onClick="{{ e.onEdit }}"><div class="ibub" style="{{ e.bub }}"><span class="msr fill">{{ e.icon }}</span></div><div class="f1"><div class="ename">{{ e.name }}</div><div class="etime">{{ e.cat }} · {{ e.time }}</div><sc-if value="{{ e.note }}"><div class="enote">{{ e.note }}</div></sc-if></div><div style="text-align:right"><div class="eamt">{{ e.main }}</div><div class="esub">{{ e.sub }}</div></div><button class="delx" onClick="{{ e.onDelete }}" aria-label="Remove"><span class="msr">close</span></button></div></sc-for>
+</div>
+</sc-if>
+
+<sc-if value="{{ isAdd }}"><div class="scroll" style="padding-top:2px">
+<div class="fx ac gap12" style="margin:4px 0 18px"><div class="chip2" onClick="{{ goBack }}"><span class="msr">arrow_back</span></div><div class="htitle" style="font-size:20px">Add expense</div></div>
+<input class="addinput" placeholder="Try: netflix, 10$  or  food, 1000 riels" value="{{ addText }}" onInput="{{ setAdd }}" autofocus="{{ true }}"/>
+<div class="parsecard">
+<div class="aihdr"><span class="msr fill">auto_awesome</span>Understood</div>
+<div class="fx jb" style="align-items:flex-end;margin-top:6px"><div><div class="pamt">{{ pAmt }}</div><div class="psub">{{ pSub }}</div></div><div class="ibub" style="{{ pBub }};width:52px;height:52px;border-radius:16px"><span class="msr fill" style="font-size:27px">{{ pIcon }}</span></div></div>
+<div style="font-size:12px;color:var(--muted);font-weight:600;margin:16px 0 2px">Category — tap to change</div>
+</div>
+<div class="chiprow"><sc-for list="{{ chips }}" as="c" hint-placeholder-count="7"><div class="catchip" style="{{ c.style }}" onClick="{{ c.onClick }}"><span class="msr fill">{{ c.icon }}</span>{{ c.label }}</div></sc-for></div>
+<span class="ilabel">Note (optional)</span>
+<input class="oinput sm" placeholder="e.g. team lunch, gift for mom" value="{{ addNote }}" onInput="{{ setAddNote }}"/>
+<div style="margin-top:24px"><button class="btn" disabled="{{ addDisabled }}" onClick="{{ confirmAdd }}"><span class="msr">check_circle</span>Add {{ pAmtShort }}</button></div>
+</div></sc-if>
+
+<sc-if value="{{ isCats }}"><div class="scroll">
+<div class="pgtitle">Categories</div><div class="pgsub">Where your Wants budget is going this month.</div>
+<div class="cgrid"><sc-for list="{{ cats }}" as="c" hint-placeholder-count="6"><div class="ccard" onClick="{{ c.onClick }}"><div class="fx jb ac"><div class="ibub" style="{{ c.bub }}"><span class="msr fill">{{ c.icon }}</span></div><span class="msr" style="color:var(--faint)">chevron_right</span></div><div class="clabel">{{ c.label }}</div><div class="cspent">{{ c.spentFmt }} of {{ c.budgetFmt }}</div><div class="cbar"><div class="cfill" style="{{ c.bar }}"></div></div><div class="cover" style="{{ c.tagStyle }}">{{ c.tag }}</div></div></sc-for></div>
+<div class="addcat" onClick="{{ openNewCat }}"><span class="msr">add</span>Add category</div>
+</div></sc-if>
+
+<sc-if value="{{ isDetail }}"><div class="scroll">
+<div class="fx jb ac" style="margin:4px 0 18px"><div class="fx ac gap12"><div class="chip2" onClick="{{ goCats }}"><span class="msr">arrow_back</span></div><div class="htitle" style="font-size:20px">{{ detLabel }}</div></div><div class="chip2" onClick="{{ openEditCat }}"><span class="msr">edit</span></div></div>
+<div class="card fx jb ac"><div><div style="font-size:12px;color:var(--muted);font-weight:700;text-transform:uppercase;letter-spacing:.05em">Spent this month</div><div style="font-size:32px;font-weight:800;letter-spacing:-.02em;margin-top:6px;font-variant-numeric:tabular-nums">{{ detSpent }}</div><div class="cspent">of {{ detBudget }} budget</div></div><div class="ibub" style="{{ detBub }};width:56px;height:56px;border-radius:18px"><span class="msr fill" style="font-size:30px">{{ detIcon }}</span></div></div>
+<div class="sec">Transactions</div>
+<sc-for list="{{ detTxns }}" as="e" hint-placeholder-count="4"><div class="exp"><div class="ibub" style="{{ e.bub }}"><span class="msr fill">{{ e.icon }}</span></div><div class="f1"><div class="ename">{{ e.name }}</div><div class="etime">{{ e.day }}</div></div><div><div class="eamt">{{ e.main }}</div><div class="esub">{{ e.sub }}</div></div></div></sc-for>
+</div></sc-if>
+
+<sc-if value="{{ isGoals }}"><div class="scroll">
+<div class="fx jb ac" style="margin:4px 0 18px"><div class="fx ac gap12"><div class="chip2" onClick="{{ goHome }}"><span class="msr">arrow_back</span></div><div class="htitle" style="font-size:20px">Savings goals</div></div><div class="chip2" onClick="{{ openGoal }}"><span class="msr">add</span></div></div>
+<sc-for list="{{ goals }}" as="g" hint-placeholder-count="1"><div class="card" style="margin-bottom:12px"><div class="fx ac gap12"><div class="ibub" style="{{ g.bub }}"><span class="msr fill">{{ g.icon }}</span></div><div class="f1"><div class="ename" style="font-size:15px">{{ g.name }}</div><div class="etime">{{ g.monthsTxt }}</div></div><button class="delx" onClick="{{ g.onRemove }}" aria-label="Delete goal"><span class="msr">delete</span></button></div><div class="fx jb ac" style="margin:14px 0 7px"><span style="font-weight:800;font-size:18px;font-variant-numeric:tabular-nums">{{ g.savedFmt }}</span><span style="color:var(--muted);font-size:13px;font-weight:600">of {{ g.targetFmt }} · {{ g.pctText }}</span></div><div class="pbar" style="margin-bottom:0"><div class="pfill" style="{{ g.pctW }}"></div></div><sc-if value="{{ g.canAdd }}"><button class="sweepbtn" onClick="{{ g.onAdd }}"><span class="msr">savings</span>{{ g.addLabel }} this month</button></sc-if></div></sc-for>
+<div class="addcat" onClick="{{ openGoal }}"><span class="msr">add</span>New goal</div>
+</div></sc-if>
+
+<sc-if value="{{ isInsights }}"><div class="scroll">
+<div class="pgtitle">Insights</div><div class="pgsub">Your end-of-day summary, all in one place.</div>
+<div class="statuscard" style="{{ statusStyle }}"><span class="scpill"><span class="msr" style="font-size:15px">schedule</span>End of day · today</span><div class="scbig">{{ statusHeadline }}</div><div class="scstats"><div class="scstat"><div class="scnum">{{ spentTodayFmt }}</div><div class="sclbl">Spent today</div></div><div class="scstat"><div class="scnum">{{ savedTodayFmt }}</div><div class="sclbl">Saved today</div></div></div><div class="tip"><span class="msr fill">lightbulb</span><span>{{ tip }}</span></div></div>
+<div class="card" style="margin-top:16px"><div class="fx jb ac" style="margin-bottom:14px"><span style="font-weight:700;font-size:14px">This week</span><span class="duepill">Daily budget {{ dailyFmt }}</span></div><div class="chart"><div class="bline" style="{{ lineStyle }}"><span class="blabel">budget</span></div><sc-for list="{{ week }}" as="d" hint-placeholder-count="7"><div class="bcol"><div class="bar {{ d.cls }}" style="{{ d.style }}"></div><div class="bday">{{ d.label }}</div></div></sc-for></div></div>
+<div class="card" style="margin-top:16px"><div class="fx jb ac" style="margin-bottom:12px"><span style="font-weight:700;font-size:14px">Spending activity</span><span class="duepill">last 5 weeks</span></div><div class="heat"><sc-for list="{{ heat }}" as="h" hint-placeholder-count="35"><div class="hcell" style="{{ h.style }}" onClick="{{ h.onClick }}" title="{{ h.title }}"></div></sc-for></div><div class="fx ac gap8" style="margin-top:12px;font-size:11px;color:var(--muted);justify-content:flex-end"><span>saved</span><div class="hleg" style="background:#1f8a5b"></div><div class="hleg" style="background:#a9dcc4"></div><div class="hleg" style="background:#e0a63a"></div><div class="hleg" style="background:#e0603a"></div><span>over</span></div><div class="fx gap12" style="margin-top:14px"><div class="statmini"><div class="statlbl">Spent most</div><div class="statval">{{ spendMostDay }} · {{ spendMostAmt }}</div></div><div class="statmini"><div class="statlbl">Best saving day</div><div class="statval">{{ saveMostDay }} · {{ saveMostAmt }}</div></div></div></div>
+<div class="card" style="margin-top:16px"><div style="font-weight:700;font-size:14px;margin-bottom:12px">Export data</div><div class="fx gap12 ac"><select class="oinput sm f1" style="font-size:14px" value="{{ exportMonth }}" onInput="{{ setExportMonth }}"><option>July 2026</option><option>June 2026</option><option>May 2026</option></select><button class="btn" style="width:auto;padding:0 20px;height:48px" onClick="{{ exportCSV }}"><span class="msr">download</span>CSV</button></div></div>
+<div style="margin-top:16px"><button class="btn ghost" onClick="{{ goLock }}"><span class="msr">notifications</span>Preview tonight's notification</button></div>
+</div></sc-if>
+
+<sc-if value="{{ isSettings }}"><div class="scroll">
+<div class="pgtitle">Settings</div><div class="pgsub">Adjust anything — your budget recalculates instantly.</div>
+<div style="margin-top:8px">
+<sc-for list="{{ settings }}" as="s" hint-placeholder-count="7"><div class="srow" onClick="{{ s.onClick }}"><div class="lb"><span class="msr">{{ s.icon }}</span></div><div class="f1"><div class="stitle">{{ s.title }}</div><div class="sval">{{ s.val }}</div></div><span class="msr" style="color:var(--faint)">chevron_right</span></div></sc-for>
+<div class="srow" onClick="{{ toggleRemind }}"><div class="lb"><span class="msr">notifications</span></div><div class="f1"><div class="stitle">Bill reminders</div><div class="sval">{{ remindLabel }}</div></div><span class="msr" style="color:var(--primary)">chevron_right</span></div>
+<div class="srow" onClick="{{ toggleDark }}"><div class="lb"><span class="msr">{{ darkIcon }}</span></div><div class="f1"><div class="stitle">Appearance</div><div class="sval">{{ darkLabel }}</div></div><span class="msr" style="color:var(--primary)">{{ darkIcon }}</span></div>
+</div>
+<div class="fx col ac" style="gap:6px;margin-top:32px;opacity:.6"><div class="brandrow"><div class="blogo" style="width:26px;height:26px"><span class="msr fill" style="font-size:15px">account_balance_wallet</span></div><span class="bname" style="font-size:14px">Sabai</span></div><div style="font-size:11px;color:var(--muted)">Spend calm · v1.0</div></div>
+</div></sc-if>
+
+<sc-if value="{{ isOnboard }}"><div class="scroll" style="padding-bottom:120px">
+<div class="fx jb ac" style="margin:4px 0 24px"><div style="width:40px"><sc-if value="{{ onbBack }}"><div class="chip2" onClick="{{ oPrev }}"><span class="msr">arrow_back</span></div></sc-if></div><div class="dots"><div class="dot {{ d1 }}"></div><div class="dot {{ d2 }}"></div><div class="dot {{ d3 }}"></div></div><div style="width:40px"></div></div>
+
+<sc-if value="{{ oStep1 }}"><div>
+<div class="brandrow" style="margin-bottom:20px"><div class="blogo"><span class="msr fill">account_balance_wallet</span></div><span class="bname">Sabai</span></div>
+<div class="otitle" style="font-size:26px;font-weight:800;letter-spacing:-.02em">What's your monthly income?</div>
+<div class="pgsub" style="padding:8px 0 0">We'll plan around this — nothing leaves your phone.</div>
+<span class="ilabel">Monthly salary</span>
+<div class="fx gap12"><input class="oinput f1" inputmode="decimal" value="{{ salaryVal }}" onInput="{{ setSalary }}"/></div>
+<span class="ilabel">Currency</span>
+<div class="seg"><button class="{{ curUsd }}" onClick="{{ setCurUsd }}">USD ($)</button><button class="{{ curKhr }}" onClick="{{ setCurKhr }}">KHR (៛)</button></div>
+<div style="font-size:12px;color:var(--muted);margin-top:12px;line-height:1.5">You spend in both — set your rate anytime. Right now <b style="color:var(--text)">1 USD ≈ {{ rateFmt }}</b>.</div>
+</div></sc-if>
+
+<sc-if value="{{ oStep2 }}"><div>
+<div class="otitle" style="font-size:26px;font-weight:800;letter-spacing:-.02em">Your fixed monthly costs</div>
+<div class="pgsub" style="padding:8px 0 0">Rent and loan come out first — these are your Needs.</div>
+<span class="ilabel">Rent</span>
+<div class="fx gap12 ac"><input class="oinput sm f1" inputmode="decimal" value="{{ rentVal }}" onInput="{{ setRent }}"/><div class="seg" style="flex:none;width:auto"><button class="on" style="cursor:default">Due 1st</button></div></div>
+<span class="ilabel">Utilities (monthly avg)</span>
+<input class="oinput sm" inputmode="decimal" value="{{ utilVal }}" onInput="{{ setUtil }}"/>
+<span class="ilabel">Loan repayment</span>
+<div class="fx gap12 ac"><input class="oinput sm f1" inputmode="decimal" value="{{ loanVal }}" onInput="{{ setLoan }}"/><div class="seg" style="flex:none;width:auto"><button class="on" style="cursor:default">Due 15th</button></div></div>
+<div class="card" style="margin-top:24px;background:var(--pw);border:none"><div class="fx jb ac"><span style="font-weight:700;font-size:13px">Fixed each month</span><span style="font-weight:800;font-size:18px;font-variant-numeric:tabular-nums">{{ fixedFmt }}</span></div></div>
+</div></sc-if>
+
+<sc-if value="{{ oStep3 }}"><div>
+<div class="otitle" style="font-size:26px;font-weight:800;letter-spacing:-.02em">Pick a budgeting method</div>
+<div class="pgsub" style="padding:8px 0 4px">Based on the 50/30/20 rule — savings come first.</div>
+<div class="mcard {{ m1 }}" onClick="{{ setMBal }}"><div class="fx jb ac"><span style="font-weight:700;font-size:15px">Balanced · 50/30/20</span><span class="duepill" style="background:var(--primary);color:#fff">Recommended</span></div><div style="font-size:13px;color:var(--muted);margin-top:5px">50% Needs · 30% Wants · 20% Savings</div></div>
+<div class="mcard {{ m2 }}" onClick="{{ setMSave }}"><div class="fx jb ac"><span style="font-weight:700;font-size:15px">Saver · 40/30/30</span></div><div style="font-size:13px;color:var(--muted);margin-top:5px">Tighter spending, faster savings</div></div>
+<span class="ilabel">Your plan</span>
+<div class="bd"><div style="{{ bdNeeds }}"></div><div style="{{ bdWants }}"></div><div style="{{ bdSave }}"></div></div>
+<div class="fx jb" style="font-size:12px;font-weight:600"><span style="color:var(--primary)">Needs {{ needsFmt }}</span><span style="color:var(--amber)">Wants {{ wantsFmt }}</span><span style="color:var(--green)">Save {{ saveGoalFmt }}</span></div>
+<div class="card" style="margin-top:20px">
+<div class="mrow" style="font-size:13px"><span style="color:var(--muted)">Salary</span><span class="v">{{ salaryFmt }}</span></div>
+<div class="mrow" style="font-size:13px"><span style="color:var(--muted)">− Rent + Loan</span><span class="v">−{{ fixedFmt }}</span></div>
+<div class="mrow" style="font-size:13px"><span style="color:var(--muted)">− Savings first</span><span class="v">−{{ saveGoalFmt }}</span></div>
+<div style="height:1px;background:var(--line);margin:10px 0"></div>
+<div class="mrow" style="font-size:14px;margin-bottom:0"><span style="font-weight:700">Free to spend</span><span class="v" style="color:var(--primary)">{{ spendableFmt }}</span></div>
+<div style="font-size:12px;color:var(--muted);margin-top:10px">≈ <b style="color:var(--text)">{{ estDailyFmt }}/day</b> across the month.</div>
+</div>
+<span class="ilabel">Daily reminder</span>
+<div class="seg"><button class="{{ t1 }}" onClick="{{ setT1 }}">8:00 PM</button><button class="{{ t2 }}" onClick="{{ setT2 }}">9:00 PM</button><button class="{{ t3 }}" onClick="{{ setT3 }}">10:00 PM</button></div>
+</div></sc-if>
+
+</div>
+<div class="ofoot"><button class="btn" onClick="{{ oNext }}">{{ oNextLabel }} <span class="msr">arrow_forward</span></button></div>
+</sc-if>
+
+</div>
+
+<div class="bnav {{ navHide }}"><sc-for list="{{ navL }}" as="n" hint-placeholder-count="2"><div class="nav {{ n.cls }}" onClick="{{ n.onClick }}"><div class="ib"><span class="msr">{{ n.icon }}</span></div>{{ n.label }}</div></sc-for><button class="navfab" onClick="{{ goAdd }}" aria-label="Add expense"><span class="msr">add</span></button><sc-for list="{{ navR }}" as="n" hint-placeholder-count="2"><div class="nav {{ n.cls }}" onClick="{{ n.onClick }}"><div class="ib"><span class="msr">{{ n.icon }}</span></div>{{ n.label }}</div></sc-for></div>
+<div class="gesture"></div>
+
+<sc-if value="{{ isLock }}"><div class="lock">
+<button class="lockclose" onClick="{{ goHome }}"><span class="msr">close</span></button>
+<div class="lockclock">9:41</div><div class="lockdate">Saturday, July 5</div>
+<div class="notifstack">
+<sc-if value="{{ showBillNotif }}"><div class="notif" style="margin-bottom:12px"><div class="nhdr"><div class="nlogo"><span class="msr fill">receipt_long</span></div><span class="napp">Sabai · Bill reminder</span><span class="ntime">9:00 AM</span></div><div class="ntitle">Upcoming bill</div><div class="nbody">{{ billNotifBody }}</div></div></sc-if>
+<div class="notif"><div class="nhdr"><div class="nlogo"><span class="msr fill">account_balance_wallet</span></div><span class="napp">Sabai</span><span class="ntime">now</span></div><div class="ntitle">Your day, wrapped 🎉</div><div class="nbody">{{ notifBody }}</div></div>
+</div>
+</div></sc-if>
+
+<sc-if value="{{ editing }}"><div class="sheetscrim" onClick="{{ closeEdit }}"><div class="sheet" onClick="{{ stop }}"><div class="grab"></div><div class="sheethdr"><div class="sheettitle">{{ sheetTitle }}</div><div class="chip2" onClick="{{ closeEdit }}"><span class="msr">close</span></div></div>
+<sc-if value="{{ eIncome }}"><div><span class="ilabel" style="margin-top:14px">Monthly salary</span><input class="oinput" inputmode="decimal" value="{{ salaryVal }}" onInput="{{ setSalary }}"/><div class="conv">{{ salaryConv }}</div><span class="ilabel">Currency</span><div class="seg"><button class="{{ curUsd }}" onClick="{{ setCurUsd }}">USD ($)</button><button class="{{ curKhr }}" onClick="{{ setCurKhr }}">KHR (៛)</button></div></div></sc-if>
+<sc-if value="{{ eRent }}"><div><span class="ilabel" style="margin-top:14px">Currency</span><div class="seg"><button class="{{ rentCurUsd }}" onClick="{{ setRentCurUsd }}">USD ($)</button><button class="{{ rentCurKhr }}" onClick="{{ setRentCurKhr }}">KHR (៛)</button></div><span class="ilabel">Rent amount</span><input class="oinput sm" inputmode="decimal" value="{{ rentVal }}" onInput="{{ setRent }}"/><div class="conv">{{ rentConv }}</div><span class="ilabel">Utilities (monthly avg)</span><input class="oinput sm" inputmode="decimal" value="{{ utilVal }}" onInput="{{ setUtil }}"/><div class="conv">{{ utilConv }}</div><span class="ilabel">Both due each month</span><div class="seg"><sc-for list="{{ rentDueOpts }}" as="o" hint-placeholder-count="4"><button class="{{ o.cls }}" onClick="{{ o.onClick }}">{{ o.label }}</button></sc-for></div></div></sc-if>
+<sc-if value="{{ eLoan }}"><div><span class="ilabel" style="margin-top:14px">Currency</span><div class="seg"><button class="{{ loanCurUsd }}" onClick="{{ setLoanCurUsd }}">USD ($)</button><button class="{{ loanCurKhr }}" onClick="{{ setLoanCurKhr }}">KHR (៛)</button></div><span class="ilabel">Monthly repayment</span><input class="oinput sm" inputmode="decimal" value="{{ loanVal }}" onInput="{{ setLoan }}"/><div class="conv">{{ loanConv }}</div><span class="ilabel">Due each month</span><div class="seg"><sc-for list="{{ loanDueOpts }}" as="o" hint-placeholder-count="4"><button class="{{ o.cls }}" onClick="{{ o.onClick }}">{{ o.label }}</button></sc-for></div></div></sc-if>
+<sc-if value="{{ eMethod }}"><div style="margin-top:14px"><div class="mcard {{ m1 }}" onClick="{{ setMBal }}"><div class="fx jb ac"><span style="font-weight:700;font-size:15px">Balanced · 50/30/20</span><span class="duepill" style="background:var(--primary);color:#fff">Recommended</span></div><div style="font-size:13px;color:var(--muted);margin-top:5px">50% Needs · 30% Wants · 20% Savings</div></div><div class="mcard {{ m2 }}" onClick="{{ setMSave }}"><div style="font-weight:700;font-size:15px">Saver · 40/30/30</div><div style="font-size:13px;color:var(--muted);margin-top:5px">Tighter spending, faster savings</div></div></div></sc-if>
+<sc-if value="{{ eCurrency }}"><div><span class="ilabel" style="margin-top:14px">Base currency</span><div class="seg"><button class="{{ curUsd }}" onClick="{{ setCurUsd }}">USD ($)</button><button class="{{ curKhr }}" onClick="{{ setCurKhr }}">KHR (៛)</button></div><span class="ilabel">Conversion rate — KHR per $1</span><input class="oinput sm" inputmode="decimal" value="{{ rateVal }}" onInput="{{ setRate }}"/></div></sc-if>
+<sc-if value="{{ eReminder }}"><div><span class="ilabel" style="margin-top:14px">Quick pick</span><div class="seg"><button class="{{ t1 }}" onClick="{{ setT1 }}">8:00 PM</button><button class="{{ t2 }}" onClick="{{ setT2 }}">9:00 PM</button><button class="{{ t3 }}" onClick="{{ setT3 }}">10:00 PM</button></div><span class="ilabel">Or choose your own time</span><input class="oinput sm" type="time" value="{{ notifyVal }}" onInput="{{ setNotify }}"/></div></sc-if>
+<sc-if value="{{ eCatForm }}"><div><div class="fx ac gap12" style="margin-top:14px"><div class="ibub" style="{{ newPreviewStyle }};width:52px;height:52px;border-radius:16px"><span class="msr fill" style="font-size:27px">{{ newPreviewIcon }}</span></div><input class="oinput sm f1" placeholder="Category name" value="{{ catFormName }}" onInput="{{ setCatFormName }}"/></div><span class="ilabel">Monthly budget (USD)</span><input class="oinput sm" inputmode="decimal" value="{{ catBudgetVal }}" onInput="{{ setCatBudget }}"/><span class="ilabel">Icon</span><div class="fx wrap gap8"><sc-for list="{{ newIcons }}" as="i" hint-placeholder-count="8"><button class="iconbtn {{ i.cls }}" onClick="{{ i.onClick }}"><span class="msr fill">{{ i.icon }}</span></button></sc-for></div><span class="ilabel">Color</span><div class="fx wrap gap8"><sc-for list="{{ newColors }}" as="c" hint-placeholder-count="8"><button class="swatch {{ c.cls }}" style="{{ c.style }}" onClick="{{ c.onClick }}"></button></sc-for></div><div style="margin-top:22px"><button class="btn" disabled="{{ addCatDisabled }}" onClick="{{ saveCat }}"><span class="msr">check_circle</span>{{ saveCatLabel }}</button></div><sc-if value="{{ showDelete }}"><button class="delbtn" onClick="{{ deleteCat }}"><span class="msr">delete</span>Delete category</button></sc-if></div></sc-if>
+<sc-if value="{{ eIou }}"><div><span class="ilabel" style="margin-top:14px">Who did you borrow from?</span><input class="oinput sm" placeholder="e.g. Sokha" value="{{ iouPerson }}" onInput="{{ setIouPerson }}"/><span class="ilabel">Amount</span><div class="fx gap12"><input class="oinput sm f1" inputmode="decimal" placeholder="0" value="{{ iouAmount }}" onInput="{{ setIouAmount }}"/><div class="seg" style="flex:none;width:120px"><button class="{{ iouUsd }}" onClick="{{ setIouUsd }}">$</button><button class="{{ iouKhr }}" onClick="{{ setIouKhr }}">៛</button></div></div><div class="conv">{{ iouConv }}</div><span class="ilabel">Pay back by</span><input class="oinput sm" placeholder="e.g. early Aug, next payday" value="{{ iouDue }}" onInput="{{ setIouDue }}"/><div style="margin-top:22px"><button class="btn" disabled="{{ iouDisabled }}" onClick="{{ saveIou }}"><span class="msr">check_circle</span>Save</button></div><sc-if value="{{ iouEditing }}"><button class="delbtn" onClick="{{ deleteIou }}"><span class="msr">delete</span>Remove</button></sc-if></div></sc-if>
+<sc-if value="{{ eEntry }}"><div><span class="ilabel" style="margin-top:14px">Amount</span><div class="fx gap12"><input class="oinput sm f1" inputmode="decimal" value="{{ entryAmount }}" onInput="{{ setEntryAmount }}"/><div class="seg" style="flex:none;width:120px"><button class="{{ entryCurUsd }}" onClick="{{ setEntryCurUsd }}">$</button><button class="{{ entryCurKhr }}" onClick="{{ setEntryCurKhr }}">៛</button></div></div><div class="conv">{{ entryConv }}</div><span class="ilabel">Category</span><div class="fx wrap gap8"><sc-for list="{{ entryChips }}" as="c" hint-placeholder-count="7"><div class="catchip" style="{{ c.style }}" onClick="{{ c.onClick }}"><span class="msr fill">{{ c.icon }}</span>{{ c.label }}</div></sc-for></div><span class="ilabel">Note (optional)</span><input class="oinput sm" placeholder="e.g. team lunch" value="{{ entryNote }}" onInput="{{ setEntryNote }}"/><div style="margin-top:22px"><button class="btn" disabled="{{ entryDisabled }}" onClick="{{ saveEntry }}"><span class="msr">check_circle</span>Save entry</button></div></div></sc-if>
+<sc-if value="{{ eGoal }}"><div><span class="ilabel" style="margin-top:14px">What are you saving for?</span><input class="oinput sm" placeholder="e.g. Malaysia trip" value="{{ goalName }}" onInput="{{ setGoalName }}"/><span class="ilabel">Target amount</span><div class="fx gap12"><input class="oinput sm f1" inputmode="decimal" placeholder="0" value="{{ goalTarget }}" onInput="{{ setGoalTarget }}"/><div class="seg" style="flex:none;width:120px"><button class="{{ goalCurUsd }}" onClick="{{ setGoalCurUsd }}">$</button><button class="{{ goalCurKhr }}" onClick="{{ setGoalCurKhr }}">៛</button></div></div><span class="ilabel">Save per month</span><input class="oinput sm" inputmode="decimal" placeholder="0" value="{{ goalPer }}" onInput="{{ setGoalPer }}"/><div style="margin-top:22px"><button class="btn" disabled="{{ goalDisabled }}" onClick="{{ saveGoal }}"><span class="msr">check_circle</span>Create goal</button></div></div></sc-if>
+<sc-if value="{{ eDay }}"><div><div class="fx jb ac" style="margin-top:8px"><button class="chip2" onClick="{{ dayPrev }}" disabled="{{ dayPrevDis }}"><span class="msr">arrow_back</span></button><div class="tc" style="font-weight:800;font-size:15px">{{ dayTitle }}</div><button class="chip2" onClick="{{ dayNext }}" disabled="{{ dayNextDis }}"><span class="msr">arrow_forward</span></button></div><div class="card" style="margin-top:14px"><div class="fx jb ac"><div><div class="statlbl">Spent</div><div style="font-size:26px;font-weight:800;font-variant-numeric:tabular-nums;margin-top:4px">{{ daySpentFmt }}</div></div><div class="duepill" style="{{ dayStatusStyle }}">{{ dayStatus }}</div></div></div><sc-if value="{{ dayEmpty }}"><div class="empty" style="padding:22px 10px"><span class="msr" style="font-size:30px">receipt_long</span><div style="font-size:13px;margin-top:8px">No itemized transactions saved for this day.</div></div></sc-if><sc-for list="{{ dayItems }}" as="e" hint-placeholder-count="3"><div class="exp"><div class="ibub" style="{{ e.bub }}"><span class="msr fill">{{ e.icon }}</span></div><div class="f1"><div class="ename">{{ e.name }}</div><div class="etime">{{ e.sub }}</div></div><div class="eamt">{{ e.amtFmt }}</div></div></sc-for></div></sc-if>
+<sc-if value="{{ showDone }}"><div style="margin-top:22px"><button class="btn" onClick="{{ closeEdit }}"><span class="msr">check_circle</span>Done</button></div></sc-if>
+</div></div></sc-if>
+<sc-if value="{{ showCelebrate }}"><div class="celebrate" onClick="{{ closeCelebrate }}"><div class="celcard"><div class="celemoji">🎉</div><div class="celtitle">Savings goal reached!</div><div class="celsub">You've set aside {{ savingsFmt }} this month — future you says thanks.</div><button class="btn" onClick="{{ closeCelebrate }}" style="margin-top:22px">Nice!</button></div></div></sc-if>
+<sc-if value="{{ hasToast }}"><div class="toast"><span class="msr fill">{{ toastIcon }}</span>{{ toast }}<sc-if value="{{ canUndo }}"><span class="undo" onClick="{{ undo }}">Undo</span></sc-if></div></sc-if>
+
+</div></div>
+</div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:460,&quot;height&quot;:940},&quot;accent&quot;:{&quot;editor&quot;:&quot;color&quot;,&quot;default&quot;:&quot;#4f46e5&quot;,&quot;tsType&quot;:&quot;string&quot;,&quot;options&quot;:[&quot;#4f46e5&quot;,&quot;#0ea5b7&quot;,&quot;#1f8a5b&quot;,&quot;#e0603a&quot;],&quot;section&quot;:&quot;Theme&quot;},&quot;startDark&quot;:{&quot;editor&quot;:&quot;boolean&quot;,&quot;default&quot;:false,&quot;tsType&quot;:&quot;boolean&quot;,&quot;section&quot;:&quot;Theme&quot;},&quot;baseRate&quot;:{&quot;editor&quot;:&quot;int&quot;,&quot;default&quot;:4100,&quot;min&quot;:3800,&quot;max&quot;:4300,&quot;step&quot;:50,&quot;tsType&quot;:&quot;number&quot;,&quot;unit&quot;:&quot;\u17db/$&quot;,&quot;section&quot;:&quot;Currency&quot;}}">
+class Component extends DCLogic {
+  constructor(props){
+    super(props);
+    this.palette=['#ef8b4f','#f0663f','#e0603a','#e05a8a','#c65b8a','#ec4899','#9b6dff','#7c5cff','#8b5cf6','#5b8def','#3ba6d4','#0ea5b7','#14b8a6','#3fb0a0','#1f9d6b','#5aa84a','#a9b23a','#d4b03b','#d98a00','#f59e0b','#b06a4a','#8a8d99','#6d7a8c','#d45b5b'];
+    this.iconSet=['category','restaurant','local_cafe','fastfood','local_bar','cake','shopping_bag','shopping_cart','checkroom','card_giftcard','directions_bus','directions_car','local_gas_station','train','flight','receipt_long','bolt','water_drop','wifi','phone_iphone','movie','sports_esports','music_note','fitness_center','spa','self_care','medical_services','medication','pets','school','book','home','chair','savings','wallet','work','brush','celebration'];
+    const cats=[
+      {key:'food',label:'Food',icon:'restaurant',color:'#ef8b4f',spent:23.5,budget:140},
+      {key:'ent',label:'Entertainment',icon:'movie',color:'#7c5cff',spent:15,budget:110},
+      {key:'transport',label:'Transport',icon:'directions_bus',color:'#3ba6d4',spent:4.18,budget:50},
+      {key:'bills',label:'Bills',icon:'receipt_long',color:'#d98a00',spent:17,budget:60},
+      {key:'shopping',label:'Shopping',icon:'shopping_bag',color:'#e05a8a',spent:10,budget:60},
+      {key:'health',label:'Health',icon:'medical_services',color:'#1f9d6b',spent:5,budget:40},
+      {key:'other',label:'Other',icon:'category',color:'#8a8d99',spent:0,budget:0}
+    ];
+    this.state={
+      screen:'home', dark:!!(props&&props.startDark), onbStep:1,
+      salary:1200, salaryCur:'USD', rentCur:'USD', loanCur:'USD', rent:350, loan:150,
+      rate:(props&&props.baseRate)||4100,
+      mp:{needs:50,wants:30,save:20}, notify:'21:00', rentDue:1, loanDue:15, editSetting:null,
+      catForm:{key:null,name:'',color:null,icon:'category',budget:50},
+      saved:232, remindBills:true, showCelebrate:false, celebrated:false, lastRemoved:null,
+      utilities:35, ious:[{id:1,person:'Sokha',amount:25,cur:'USD',due:'early Aug'}], paidBills:{}, iouForm:{id:null,person:'',amount:'',cur:'USD',due:''}, dayIdx:34,
+      addNote:'', entryForm:{i:-1,amount:'',cur:'USD',cat:'food',note:''}, exportMonth:'July 2026',
+      goals:[{id:1,name:'Malaysia trip',icon:'flight',target:600,saved:180,perMonth:100,cur:'USD'}], goalForm:{name:'',target:'',perMonth:'',cur:'USD',icon:'flight'},
+      history:[12,8,0,17,22,9,14,6,19,11,0,25,7,13,10,8,16,21,5,0,12,9,28,7,14,11,6,18,8,0,13,19,24,10,9],
+      cats,
+      today:[
+        {name:'Phone top-up',cat:'bills',amt:2,cur:'USD',time:'6:05 PM'},
+        {name:'Lunch',cat:'food',amt:3,cur:'USD',time:'12:30 PM'},
+        {name:'Bus to work',cat:'transport',amt:4000,cur:'KHR',time:'8:40 AM'},
+        {name:'Morning coffee',cat:'food',amt:2.5,cur:'USD',time:'8:15 AM'}
+      ],
+      txns:[
+        {name:'Groceries',cat:'food',amt:12,cur:'USD',day:'Jul 4'},
+        {name:'Street noodles',cat:'food',amt:6000,cur:'KHR',day:'Jul 3'},
+        {name:'Morning coffee',cat:'food',amt:2.5,cur:'USD',day:'Today'},
+        {name:'Lunch',cat:'food',amt:3,cur:'USD',day:'Today'},
+        {name:'Netflix',cat:'ent',amt:10,cur:'USD',day:'Jul 2'},
+        {name:'Movie ticket',cat:'ent',amt:5,cur:'USD',day:'Jul 1'},
+        {name:'Bus to work',cat:'transport',amt:4000,cur:'KHR',day:'Today'},
+        {name:'Grab ride',cat:'transport',amt:3.2,cur:'USD',day:'Jul 3'},
+        {name:'Phone top-up',cat:'bills',amt:2,cur:'USD',day:'Today'},
+        {name:'Internet',cat:'bills',amt:15,cur:'USD',day:'Jul 1'},
+        {name:'T-shirt',cat:'shopping',amt:10,cur:'USD',day:'Jul 2'},
+        {name:'Pharmacy',cat:'health',amt:5,cur:'USD',day:'Jul 3'}
+      ],
+      week:[14,19,11,22,16,8,8.5], weekDays:['M','T','W','T','F','S','S'],
+      addText:'', addOverride:null, selCat:'food', toast:null
+    };
+  }
+  colors(){ return this.state.dark? {green:'#3fbc86',amber:'#e0a63a',red:'#f0685c',primary:this.props.accent||'#8b83ff'} : {green:'#1f8a5b',amber:'#c8820a',red:'#d84c3f',primary:this.props.accent||'#4f46e5'}; }
+  fmtU(n){ return '$'+Number(n).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2}); }
+  fmtU0(n){ return '$'+Math.round(Number(n)).toLocaleString('en-US'); }
+  fmtK(n){ return Math.round(Number(n)).toLocaleString('en-US')+'\u17DB'; }
+  fmtAmt(a,cur){ return cur==='KHR'?this.fmtK(a):this.fmtU0(a); }
+  cvt(a,cur){ return cur==='KHR'? a/this.state.rate : a; }
+  conv2(a,cur){ const n=parseFloat(a)||0; return cur==='KHR'? '≈ '+this.fmtU(n/this.state.rate) : '≈ '+this.fmtK(n*this.state.rate); }
+  toUSD(e){ return e.cur==='KHR'? e.amt/this.state.rate : e.amt; }
+  cat(k){ return this.state.cats.find(c=>c.key===k)||this.state.cats[this.state.cats.length-1]; }
+  cap(s){ return s? s.charAt(0).toUpperCase()+s.slice(1):s; }
+  ord(n){ const s=['th','st','nd','rd'],v=n%100; return n+(s[(v-20)%10]||s[v]||s[0]); }
+  fmtTime(t){ const p=(t||'21:00').split(':'); let h=+p[0]; const ap=h>=12?'PM':'AM'; h=h%12||12; return h+':'+(p[1]||'00')+' '+ap; }
+  go(sc){ this.setState({screen:sc}); }
+  toggleDark(){ this.setState(s=>({dark:!s.dark})); }
+  parse(text){
+    const t=(text||'').toLowerCase();
+    const m=t.match(/(\d[\d,]*\.?\d+|\d[\d,]+|\d+)/);
+    let amount=m? parseFloat(m[1].replace(/,/g,'')) : null;
+    let cur=null;
+    if(/riel|khr|\u17db/.test(t)) cur='KHR';
+    else if(/\$|usd|dollar|buck/.test(t)) cur='USD';
+    else if(amount!=null) cur = amount>=500?'KHR':'USD';
+    const map={food:['food','lunch','dinner','breakfast','coffee','restaurant','snack','grocery','groceries','meal','eat','cafe','tea','noodle','rice','drink'],ent:['netflix','movie','cinema','game','spotify','youtube','concert','bar','beer','party','ticket'],transport:['bus','taxi','grab','fuel','gas','petrol','tuktuk','tuk','moto','ride','uber','parking','transport'],bills:['phone','internet','wifi','electric','electricity','water','bill','subscription','topup','top-up','recharge','rent'],shopping:['clothes','shoes','shirt','amazon','shopping','mall','store','gadget','bag'],health:['pharmacy','doctor','medicine','gym','hospital','clinic','health','dentist','vitamin']};
+    let catKey='other';
+    outer: for(const k in map){ for(const w of map[k]){ if(t.includes(w)){ catKey=k; break outer; } } }
+    return {amount,cur:cur||'USD',catKey,label:(t.split(',')[0]||'').trim()};
+  }
+  setAdd(e){ this.setState({addText:e.target.value, addOverride:null}); }
+  confirmAdd(){
+    const p=this.parse(this.state.addText);
+    if(p.amount==null) return;
+    const key=this.state.addOverride||p.catKey;
+    const m=this.cat(key);
+    const name=this.cap(p.label)||m.label;
+    const now=new Date();
+    let h=now.getHours(); const ap=h>=12?'PM':'AM'; h=h%12||12;
+    const time=h+':'+String(now.getMinutes()).padStart(2,'0')+' '+ap;
+    const note=(this.state.addNote||'').trim();
+    const e={name,cat:key,amt:p.amount,cur:p.cur,time,note};
+    const usd=p.cur==='KHR'? p.amount/this.state.rate : p.amount;
+    const disp=p.cur==='KHR'? this.fmtK(p.amount) : this.fmtU(p.amount);
+    this.setState(st=>({
+      today:[e,...st.today],
+      txns:[{name,cat:key,amt:p.amount,cur:p.cur,day:'Today',note},...st.txns],
+      cats:st.cats.map(c=>c.key===key?{...c,spent:c.spent+usd}:c),
+      addText:'', addOverride:null, addNote:'', screen:'home', toast:'Added '+disp, lastRemoved:null
+    }));
+    clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null}),2400);
+  }
+  setNum(k,e){ const v=parseFloat((e.target.value||'').replace(/,/g,''))||0; this.setState({[k]:v}); }
+  autoColor(){ const used=this.state.cats.map(c=>c.color); return this.palette.find(c=>!used.includes(c))||this.palette[this.state.cats.length%this.palette.length]; }
+  openCatForm(key){ if(key){ const c=this.state.cats.find(x=>x.key===key); this.setState({catForm:{key,name:c.label,color:c.color,icon:c.icon,budget:c.budget},editSetting:'catform'}); } else { this.setState({catForm:{key:null,name:'',color:null,icon:'category',budget:50},editSetting:'catform'}); } }
+  saveCat(){ const s=this.state, f=s.catForm; const color=f.color||this.autoColor(); const label=(f.name||'').trim()||'New category'; const budget=Math.max(parseFloat(f.budget)||0,0); if(f.key){ this.setState({cats:s.cats.map(c=>c.key===f.key?{...c,label,color,icon:f.icon,budget}:c),editSetting:null}); } else { this.setState({cats:[...s.cats,{key:'c'+Date.now(),label,icon:f.icon||'category',color,spent:0,budget}],editSetting:null}); } }
+  deleteCat(){ const k=this.state.catForm.key; if(!k)return; this.setState(st=>({cats:st.cats.filter(c=>c.key!==k),editSetting:null,screen:st.screen==='detail'?'categories':st.screen})); }
+  sweepToSavings(left){ if(left<=0)return; this.setState(st=>{ const ns=st.saved+left; const target=st.salary*st.mp.save/100; const cross=ns>=target && !st.celebrated; return {saved:ns, showCelebrate:cross||st.showCelebrate, celebrated:cross||st.celebrated, toast:'Swept '+this.fmtU(left)+' to savings', lastRemoved:null}; }); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null}),2200); }
+  removeExpense(i){ this.setState(st=>{ const e=st.today[i]; if(!e)return {}; const usd=e.cur==='KHR'?e.amt/st.rate:e.amt; return {today:st.today.filter((_,idx)=>idx!==i), cats:st.cats.map(c=>c.key===e.cat?{...c,spent:Math.max(c.spent-usd,0)}:c), toast:'Removed '+e.name, lastRemoved:{e,i}}; }); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null,lastRemoved:null}),4000); }
+  undoRemove(){ this.setState(st=>{ if(!st.lastRemoved)return {}; const {e,i}=st.lastRemoved; const today=[...st.today]; today.splice(Math.min(i,today.length),0,e); const usd=e.cur==='KHR'?e.amt/st.rate:e.amt; return {today, cats:st.cats.map(c=>c.key===e.cat?{...c,spent:c.spent+usd}:c), lastRemoved:null, toast:null}; }); clearTimeout(this._t); }
+  markBillPaid(ev,k){ if(ev&&ev.stopPropagation)ev.stopPropagation(); this.setState(st=>({paidBills:{...st.paidBills,[k]:true}, toast:'Marked paid'})); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null}),2200); }
+  settleIou(ev,id){ if(ev&&ev.stopPropagation)ev.stopPropagation(); this.setState(st=>({ious:st.ious.filter(i=>i.id!==id), toast:'Settled — nice'})); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null}),2200); }
+  openIou(){ this.setState({iouForm:{id:null,person:'',amount:'',cur:'USD',due:''}, editSetting:'iou'}); }
+  openEditIou(id){ const io=this.state.ious.find(x=>x.id===id); if(!io)return; this.setState({iouForm:{id:io.id,person:io.person,amount:String(io.amount),cur:io.cur,due:io.due}, editSetting:'iou'}); }
+  saveIou(){ const f=this.state.iouForm; const amt=parseFloat(f.amount)||0; if(!(f.person||'').trim()||amt<=0)return; const rec={person:f.person.trim(),amount:amt,cur:f.cur,due:(f.due||'').trim()||'next month'}; this.setState(st=>({ious:f.id?st.ious.map(i=>i.id===f.id?{...i,...rec}:i):[...st.ious,{id:Date.now(),...rec}],editSetting:null})); }
+  deleteIou(){ const id=this.state.iouForm.id; if(!id)return; this.setState(st=>({ious:st.ious.filter(i=>i.id!==id),editSetting:null})); }
+  openEntry(i){ const e=this.state.today[i]; if(!e)return; this.setState({entryForm:{i,amount:String(e.amt),cur:e.cur,cat:e.cat,note:e.note||''},editSetting:'entry'}); }
+  saveEntry(){ const f=this.state.entryForm; const amt=parseFloat(f.amount)||0; if(f.i<0||amt<=0)return; this.setState(st=>{ const old=st.today[f.i]; if(!old)return {editSetting:null}; const oldUsd=old.cur==='KHR'?old.amt/st.rate:old.amt; const newUsd=f.cur==='KHR'?amt/st.rate:amt; const today=st.today.map((e,idx)=>idx===f.i?{...e,amt,cur:f.cur,cat:f.cat,note:(f.note||'').trim()}:e); const cats=st.cats.map(c=>{ let sp=c.spent; if(c.key===old.cat)sp-=oldUsd; if(c.key===f.cat)sp+=newUsd; return {...c,spent:Math.max(sp,0)}; }); return {today,cats,editSetting:null,toast:'Entry updated'}; }); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null}),2000); }
+  exportCSV(){ const s=this.state; const esc=(v)=>{ const t=String(v==null?'':v); return /[",\n]/.test(t)?'"'+t.replace(/"/g,'""')+'"':t; }; const rows=[['Date','Description','Category','Amount','Currency','Note']]; s.today.forEach(e=>rows.push(['Today',e.name,this.cat(e.cat).label,e.amt,e.cur,e.note||''])); s.txns.forEach(e=>rows.push([e.day,e.name,this.cat(e.cat).label,e.amt,e.cur,e.note||''])); const csv=rows.map(r=>r.map(esc).join(',')).join('\n'); const blob=new Blob([csv],{type:'text/csv'}); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='sabai-'+(s.exportMonth||'export').replace(/\s+/g,'-')+'.csv'; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),1500); this.setState({toast:'CSV downloaded'}); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null}),2200); }
+  openGoal(){ this.setState({goalForm:{name:'',target:'',perMonth:'',cur:'USD',icon:'flight'},editSetting:'goal'}); }
+  saveGoal(){ const f=this.state.goalForm; const t=parseFloat(f.target)||0; if(!(f.name||'').trim()||t<=0)return; this.setState(st=>({goals:[...st.goals,{id:Date.now(),name:f.name.trim(),icon:f.icon||'savings',target:t,saved:0,perMonth:parseFloat(f.perMonth)||0,cur:f.cur}],editSetting:null})); }
+  contributeGoal(id){ this.setState(st=>({goals:st.goals.map(g=>g.id===id?{...g,saved:Math.min(g.saved+(g.perMonth||0),g.target)}:g),toast:'Added to goal'})); clearTimeout(this._t); this._t=setTimeout(()=>this.setState({toast:null}),2000); }
+  removeGoal(id){ this.setState(st=>({goals:st.goals.filter(g=>g.id!==id)})); }
+  oNext(){ const st=this.state.onbStep; if(st<3) this.setState({onbStep:st+1}); else this.setState({screen:'home'}); }
+  oPrev(){ this.setState(s=>({onbStep:Math.max(1,s.onbStep-1)})); }
+  setMethod(needs,wants,save){ this.setState({mp:{needs,wants,save}}); }
+
+  renderVals(){
+    const s=this.state, C=this.colors(), rate=s.rate;
+    const both=(usd)=>'\u2248 '+this.fmtK(usd*rate);
+    // ---- monthly maths ----
+    const salaryUSD=this.cvt(s.salary,s.salaryCur);
+    const rentUSD=this.cvt(s.rent,s.rentCur), utilUSD=this.cvt(s.utilities,s.rentCur), loanUSD=this.cvt(s.loan,s.loanCur);
+    const savingsTarget=salaryUSD*s.mp.save/100;
+    const needs=salaryUSD*s.mp.needs/100, wants=salaryUSD*s.mp.wants/100;
+    const fixed=rentUSD+utilUSD+loanUSD;
+    const spendableMonth=salaryUSD-fixed-savingsTarget;
+    const spentMonth=s.cats.reduce((a,c)=>a+c.spent,0);
+    const daysLeft=27;
+    const base=Math.max((spendableMonth-spentMonth)/daysLeft,0);
+    const yBudget=17, ySpent=10;
+    const rollover=yBudget-ySpent;
+    const dailyBudget=Math.max(base+rollover,0);
+    const spentToday=s.today.reduce((a,e)=>a+this.toUSD(e),0);
+    const leftToday=dailyBudget-spentToday;
+    const heroOver=leftToday<-0.005;
+    const base2=Math.max((spendableMonth-spentMonth)/Math.max(daysLeft-1,1),0);
+    const tomorrow=Math.max(base2+leftToday,0);
+    const remFrac=Math.max(Math.min(dailyBudget>0?leftToday/dailyBudget:0,1),0);
+    const ringColor=remFrac>0.5?C.green:remFrac>0.2?C.amber:C.red;
+    const circ=2*Math.PI*100;
+    const savedSoFar=s.saved;
+    // ---- lists ----
+    const today=s.today.slice(0,5).map((e,i)=>{const m=this.cat(e.cat);const u=this.toUSD(e);return{name:e.name,time:e.time,cat:m.label,icon:m.icon,note:e.note||'',main:e.cur==='KHR'?this.fmtK(e.amt):this.fmtU(e.amt),sub:e.cur==='KHR'?'\u2248 '+this.fmtU(u):both(u),bub:{background:m.color+'22',color:m.color},onEdit:()=>this.openEntry(i),onDelete:(ev)=>{if(ev&&ev.stopPropagation)ev.stopPropagation();this.removeExpense(i);}};});
+    // heatmap + stats
+    const hdb=17, wl=['M','T','W','T','F','S','S'];
+    const dLabel=(i)=>{ const d=new Date(2026,6,5); d.setDate(d.getDate()-(34-i)); return d; };
+    const heat=s.history.map((v,i)=>{ let bg; if(v===0){bg='var(--surface2)';} else {const r=v/hdb; bg=r<=0.5?'#1f8a5b':r<=0.85?'#57b98a':r<=1?'#a9dcc4':r<=1.3?'#e0a63a':'#e0603a';} const d=dLabel(i); const lbl=i===34?'Today':d.toLocaleDateString('en-US',{month:'short',day:'numeric'}); return {style:{background:bg,cursor:'pointer'}, title:lbl+' · '+(v===0?'no spend':this.fmtU(v)), onClick:()=>this.setState({editSetting:'day',dayIdx:i})}; });
+    const dnames=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+    let msI=-1,svI=-1; s.history.forEach((v,i)=>{ if(v>0){ if(msI<0||v>s.history[msI])msI=i; if(svI<0||(hdb-v)>(hdb-s.history[svI]))svI=i; } });
+    const spendMostDay=msI>=0?dnames[msI%7]:'\u2014', spendMostAmt=msI>=0?this.fmtU(s.history[msI]):'\u2014';
+    const saveMostDay=svI>=0?dnames[svI%7]:'\u2014', saveMostAmt=svI>=0?this.fmtU(Math.max(hdb-s.history[svI],0)):'\u2014';
+    // goals
+    const goals=s.goals.map(g=>{ const pct=g.target>0?Math.min(g.saved/g.target,1):0; const left=Math.max(g.target-g.saved,0); const months=g.perMonth>0?Math.ceil(left/g.perMonth):0; return {id:g.id,name:g.name,icon:g.icon,savedFmt:this.fmtAmt(g.saved,g.cur),targetFmt:this.fmtAmt(g.target,g.cur),pctW:{width:(pct*100)+'%',background:left<=0?C.green:'var(--primary)'},pctText:Math.round(pct*100)+'%',done:left<=0,monthsTxt:left<=0?'Goal reached 🎉':(g.perMonth>0?months+' month'+(months===1?'':'s')+' to go · '+this.fmtAmt(g.perMonth,g.cur)+'/mo':'Set a monthly amount'),bub:{background:'#7c5cff22',color:'#7c5cff'},onAdd:()=>this.contributeGoal(g.id),onRemove:()=>this.removeGoal(g.id),canAdd:left>0&&g.perMonth>0,addLabel:'Add '+this.fmtAmt(g.perMonth,g.cur)}; });
+    const topGoal=goals[0]||null;
+    // ---- day view ----
+    const di=Math.max(0,Math.min(34,s.dayIdx));
+    const dDate=dLabel(di); const isToday=di===34;
+    const mdl=dDate.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+    const dayTitle=isToday?'Today':dDate.toLocaleDateString('en-US',{weekday:'long',month:'short',day:'numeric'});
+    const dayRaw=isToday?s.today:s.txns.filter(t=>t.day===mdl);
+    const daySpentUSD=dayRaw.length?dayRaw.reduce((a,e)=>a+(e.cur==='KHR'?e.amt/rate:e.amt),0):s.history[di];
+    const dayItems=dayRaw.map(e=>{const m=this.cat(e.cat);return{name:e.name,sub:m.label+(e.note?' · '+e.note:''),icon:m.icon,bub:{background:m.color+'22',color:m.color},amtFmt:e.cur==='KHR'?this.fmtK(e.amt):this.fmtU(e.amt)};});
+    const daySave=hdb-daySpentUSD;
+    const dayStatus=daySpentUSD<=0?'No spending logged':(daySave>=0?this.fmtU(daySave)+' under budget':this.fmtU(-daySave)+' over budget');
+    // entry edit chips
+    const entryChips=s.cats.map(c=>({label:c.label,icon:c.icon,onClick:()=>this.setState(st=>({entryForm:{...st.entryForm,cat:c.key}})),style:c.key===s.entryForm.cat?{background:c.color,borderColor:c.color,color:'#fff'}:{}}));
+    // ---- upcoming bills ----
+    const du=(day)=>{ let d=day-5; if(d<0)d+=31; return d; };
+    const dtxt=(d)=>d===0?'Due today':d===1?'Due tomorrow':'Due in '+d+' days';
+    const billsRaw=[{key:'rent',label:'Rent & utilities',amtFmt:this.fmtAmt(s.rent+s.utilities,s.rentCur),due:s.rentDue,icon:'receipt_long',color:'#d98a00'},{key:'loan',label:'Loan repayment',amtFmt:this.fmtAmt(s.loan,s.loanCur),due:s.loanDue,icon:'savings',color:'#7c5cff'}].filter(b=>!s.paidBills[b.key]);
+    const billItems=billsRaw.map(b=>({...b,d:du(b.due)})).sort((a,b)=>a.d-b.d).map(b=>({label:b.label,amtFmt:b.amtFmt,daysTxt:dtxt(b.d),bub:{background:b.color+'22',color:b.color},icon:b.icon,onRow:()=>this.setState({editSetting:b.key}),onAction:(ev)=>this.markBillPaid(ev,b.key)}));
+    const iouItems=s.ious.map(io=>({label:'Pay back '+io.person,amtFmt:this.fmtAmt(io.amount,io.cur),daysTxt:'Borrowed · due '+io.due,bub:{background:'#3ba6d422',color:'#3ba6d4'},icon:'wallet',onRow:()=>this.openEditIou(io.id),onAction:(ev)=>this.settleIou(ev,io.id)}));
+    const upcoming=billItems.concat(iouItems);
+    const soon=billsRaw.map(b=>({...b,d:du(b.due)})).sort((a,b)=>a.d-b.d)[0];
+    const billNotifBody=soon?(soon.label+' of '+soon.amtFmt+' is '+dtxt(du(soon.due)).toLowerCase()+' — a heads-up so it\u2019s covered.'):'';
+    const cats=s.cats.filter(c=>c.budget>0).map(c=>{const r=c.budget>0?c.spent/c.budget:0;const over=r>1;return{label:c.label,icon:c.icon,spentFmt:this.fmtU(c.spent),budgetFmt:this.fmtU0(c.budget),bub:{background:c.color+'22',color:c.color},bar:{width:Math.min(r,1)*100+'%',background:c.color},tag:over?'Over budget':Math.round(r*100)+'% used',tagStyle:{color:over?C.red:'var(--muted)'},onClick:()=>this.setState({selCat:c.key,screen:'detail'})};});
+    // ---- add screen ----
+    const p=this.parse(s.addText);
+    const active=s.addOverride||p.catKey;
+    const has=p.amount!=null && s.addText.trim().length>0;
+    const am=this.cat(active);
+    const pAmt=has?(p.cur==='KHR'?this.fmtK(p.amount):this.fmtU(p.amount)):'—';
+    const pSub=has?(p.cur==='KHR'?'\u2248 '+this.fmtU(p.amount/rate):both(p.amount)):'Start typing above';
+    const chips=s.cats.map(c=>({label:c.label,icon:c.icon,onClick:()=>this.setState({addOverride:c.key}),style:c.key===active?{background:c.color,borderColor:c.color,color:'#fff'}:{}}));
+    // ---- detail ----
+    const dm=this.cat(s.selCat);
+    const dTx=s.txns.filter(t=>t.cat===s.selCat).map(e=>{const u=this.toUSD(e);return{name:e.name,day:e.day,icon:dm.icon,main:e.cur==='KHR'?this.fmtK(e.amt):this.fmtU(e.amt),sub:e.cur==='KHR'?'\u2248 '+this.fmtU(u):both(u),bub:{background:dm.color+'22',color:dm.color}};});
+    // ---- insights ----
+    const under=leftToday>=0.5, over=leftToday<-0.5;
+    const stColor=under?C.green:over?C.red:C.amber;
+    const statusHeadline=under?"You're under budget today \u2014 nice work.":over?"A little over today \u2014 tomorrow adjusts for you.":"Right on budget today.";
+    const tip=under?"Food is your top spend this week. Cooking one dinner at home could add ~$6 to savings.":over?"Entertainment ran high this week. Skipping one takeout tomorrow brings you back on track.":"Steady spending all week \u2014 keep it up and you'll hit your savings goal early.";
+    const wk=Math.max.apply(null,s.week.concat([dailyBudget]))*1.15;
+    const week=s.week.map((v,i)=>({label:s.weekDays[i],cls:v>dailyBudget?'over':'',style:{height:(v/wk*100)+'%'}}));
+    const lineTop=(1-dailyBudget/wk)*142+8;
+    // ---- settings ----
+    const methodName=s.mp.save===20?'Balanced (50/30/20)':'Saver (40/30/30)';
+    const notifLabel=this.fmtTime(s.notify);
+    const openEdit=(k)=>this.setState({editSetting:k});
+    const settings=[
+      {icon:'account_balance_wallet',title:'Monthly income',val:this.fmtAmt(s.salary,s.salaryCur)+' / month',onClick:()=>openEdit('income')},
+      {icon:'receipt_long',title:'Rent & utilities',val:this.fmtAmt(s.rent+s.utilities,s.rentCur)+' · due '+this.ord(s.rentDue),onClick:()=>openEdit('rent')},
+      {icon:'savings',title:'Loan repayment',val:this.fmtAmt(s.loan,s.loanCur)+' · due '+this.ord(s.loanDue),onClick:()=>openEdit('loan')},
+      {icon:'pie_chart',title:'Budgeting method',val:methodName,onClick:()=>openEdit('method')},
+      {icon:'currency_exchange',title:'Currencies',val:'USD · KHR  (1$ = '+this.fmtK(rate)+')',onClick:()=>openEdit('currency')},
+      {icon:'grid_view',title:'Categories',val:s.cats.length+' categories',onClick:()=>this.setState({screen:'categories'})},
+      {icon:'schedule',title:'Daily reminder',val:notifLabel,onClick:()=>openEdit('reminder')}
+    ];
+    const dueDays=[1,5,15,25];
+    const rentDueOpts=dueDays.map(d=>({label:this.ord(d),cls:s.rentDue===d?'on':'',onClick:()=>this.setState({rentDue:d})}));
+    const loanDueOpts=dueDays.map(d=>({label:this.ord(d),cls:s.loanDue===d?'on':'',onClick:()=>this.setState({loanDue:d})}));
+    const sheetTitles={income:'Monthly income',rent:'Rent & utilities',loan:'Loan repayment',method:'Budgeting method',currency:'Currencies',reminder:'Daily reminder',newcat:'New category',iou:'Borrowed money',entry:'Edit entry',goal:'New goal'};
+    const f=s.catForm;
+    const ncAuto=f.color||this.autoColor();
+    const newColors=this.palette.map(c=>({style:{background:c},cls:ncAuto===c?'on':'',onClick:()=>this.setState(st=>({catForm:{...st.catForm,color:c}}))}));
+    const newIcons=this.iconSet.map(ic=>({icon:ic,cls:f.icon===ic?'on':'',onClick:()=>this.setState(st=>({catForm:{...st.catForm,icon:ic}}))}));
+    const savingsTgt=savingsTarget;
+    const goalReached=savedSoFar>=savingsTgt;
+    const sweepShow=leftToday>0.01 && !goalReached;
+    // ---- nav ----
+    const navDef=[['home','home','Home'],['categories','grid_view','Categories'],['insights','insights','Insights'],['settings','settings','Settings']];
+    const nav=navDef.map(([k,ic,lb])=>({icon:ic,label:lb,cls:s.screen===k?'on':'',onClick:()=>this.go(k)}));
+    const navL=nav.slice(0,2), navR=nav.slice(2);
+    const navScreens=['home','categories','insights','settings'];
+    const jumpDef=[['onboard','tune','Setup'],['home','home','Home'],['add','add','Add'],['categories','grid_view','Categories'],['goals','flight','Goals'],['insights','insights','Insights'],['lock','notifications','Lock'],['settings','settings','Settings']];
+    const jump=jumpDef.map(([k,ic,lb])=>({icon:ic==='tune'?'edit':ic,label:lb,cls:s.screen===k?'on':'',onClick:()=>this.setState(k==='onboard'?{screen:'onboard',onbStep:1}:{screen:k})}));
+    // ---- notification body ----
+    const notifBody='Today: spent '+this.fmtU(spentToday)+' \u00b7 saved '+this.fmtU(Math.max(leftToday,0))+' \u00b7 '+this.fmtU(Math.abs(leftToday))+(under?' under':over?' over':' on')+' budget. '+(under?'Food is your top spend \u2014 you\u2019re doing great.':'Watch spending on Food tomorrow.');
+    // ---- onboarding breakdown ----
+    const estDaily=spendableMonth/31;
+
+    return {
+      appCls:'app'+(s.dark?' dark':''), appStyle:{'--primary':(this.props.accent||(s.dark?'#8b83ff':'#4f46e5'))},
+      isHome:s.screen==='home', isAdd:s.screen==='add', isCats:s.screen==='categories', isDetail:s.screen==='detail', isInsights:s.screen==='insights', isSettings:s.screen==='settings', isOnboard:s.screen==='onboard', isLock:s.screen==='lock',
+      navHide: navScreens.includes(s.screen)?'':'hide', nav, navL, navR, jump,
+      darkIcon:s.dark?'light_mode':'dark_mode', darkLabel:s.dark?'Dark mode':'Light mode',
+      toggleDark:()=>this.toggleDark(), greet:'Good evening',
+      goAdd:()=>this.go('add'), goBack:()=>this.go('home'), goHome:()=>this.go('home'), goCats:()=>this.go('categories'), goInsights:()=>this.go('insights'), goLock:()=>this.go('lock'),
+      hasToast:!!s.toast, toast:s.toast, canUndo:!!s.lastRemoved, undo:()=>this.undoRemove(), toastIcon:s.lastRemoved?'delete':'check_circle',
+      // home
+      ringStyle:{strokeDasharray:circ.toFixed(1),strokeDashoffset:(circ*(1-remFrac)).toFixed(1),stroke:ringColor},
+      baseFmt:this.fmtU(base), rolloverFmt:this.fmtU(rollover),
+      daysLeftTxt:daysLeft+' days left',
+      spentMonthFmt:this.fmtU(spentMonth), spendableFmt:this.fmtU0(spendableMonth),
+      monthFill:{width:Math.min(spentMonth/spendableMonth,1)*100+'%',background:'var(--primary)'},
+      savedFmt:this.fmtU0(savedSoFar), savingsFmt:this.fmtU0(savingsTarget),
+      saveFill:{width:Math.min(savedSoFar/savingsTarget,1)*100+'%',background:C.green},
+      today,
+      // add
+      addText:s.addText, setAdd:e=>this.setAdd(e), confirmAdd:()=>this.confirmAdd(),
+      pAmt, pSub, pIcon:am.icon, pBub:{background:am.color+'22',color:am.color}, chips,
+      addDisabled:!has, pAmtShort:has?pAmt:'',
+      // categories
+      cats,
+      // detail
+      detLabel:dm.label, detIcon:dm.icon, detBub:{background:dm.color+'22',color:dm.color},
+      detSpent:this.fmtU(dm.spent), detBudget:this.fmtU0(dm.budget), detTxns:dTx,
+      // insights
+      statusStyle:{background:stColor}, statusHeadline, tip,
+      spentTodayFmt:this.fmtU(spentToday), savedTodayFmt:this.fmtU(Math.max(leftToday,0)),
+      dailyFmt:this.fmtU(dailyBudget), week, lineStyle:{top:lineTop+'px'},
+      // settings
+      settings, rentDueOpts, loanDueOpts,
+      editing:!!s.editSetting, sheetTitle:s.editSetting==='catform'?(f.key?'Edit category':'New category'):s.editSetting==='day'?dayTitle:s.editSetting==='iou'?(s.iouForm.id?'Edit borrowed':'Borrowed money'):(sheetTitles[s.editSetting]||''),
+      eIncome:s.editSetting==='income', eRent:s.editSetting==='rent', eLoan:s.editSetting==='loan', eMethod:s.editSetting==='method', eCurrency:s.editSetting==='currency', eReminder:s.editSetting==='reminder', eCatForm:s.editSetting==='catform', notCatForm:s.editSetting!=='catform',
+      eIou:s.editSetting==='iou', eEntry:s.editSetting==='entry', eGoal:s.editSetting==='goal',
+      showDone:['catform','iou','entry','goal','day'].indexOf(s.editSetting)<0,
+      entryChips, entryAmount:s.entryForm.amount, setEntryAmount:e=>this.setState(st=>({entryForm:{...st.entryForm,amount:(e.target.value||'').replace(/[^0-9.]/g,'')}})),
+      entryCurUsd:s.entryForm.cur==='USD'?'on':'', entryCurKhr:s.entryForm.cur==='KHR'?'on':'',
+      setEntryCurUsd:()=>this.setState(st=>({entryForm:{...st.entryForm,cur:'USD'}})), setEntryCurKhr:()=>this.setState(st=>({entryForm:{...st.entryForm,cur:'KHR'}})),
+      entryNote:s.entryForm.note, setEntryNote:e=>this.setState(st=>({entryForm:{...st.entryForm,note:e.target.value}})),
+      entryConv:this.conv2(s.entryForm.amount,s.entryForm.cur), saveEntry:()=>this.saveEntry(), entryDisabled:!(parseFloat(s.entryForm.amount)>0),
+      addNote:s.addNote, setAddNote:e=>this.setState({addNote:e.target.value}),
+      heat, spendMostDay, spendMostAmt, saveMostDay, saveMostAmt,
+      exportCSV:()=>this.exportCSV(), exportMonth:s.exportMonth, setExportMonth:e=>this.setState({exportMonth:e.target.value}),
+      goals, topGoal, hasGoals:goals.length>0, isGoals:s.screen==='goals', goGoals:()=>this.go('goals'),
+      openGoal:()=>this.openGoal(), saveGoal:()=>this.saveGoal(),
+      goalName:s.goalForm.name, setGoalName:e=>this.setState(st=>({goalForm:{...st.goalForm,name:e.target.value}})),
+      goalTarget:s.goalForm.target, setGoalTarget:e=>this.setState(st=>({goalForm:{...st.goalForm,target:(e.target.value||'').replace(/[^0-9.]/g,'')}})),
+      goalPer:s.goalForm.perMonth, setGoalPer:e=>this.setState(st=>({goalForm:{...st.goalForm,perMonth:(e.target.value||'').replace(/[^0-9.]/g,'')}})),
+      goalCurUsd:s.goalForm.cur==='USD'?'on':'', goalCurKhr:s.goalForm.cur==='KHR'?'on':'',
+      setGoalCurUsd:()=>this.setState(st=>({goalForm:{...st.goalForm,cur:'USD'}})), setGoalCurKhr:()=>this.setState(st=>({goalForm:{...st.goalForm,cur:'KHR'}})),
+      goalDisabled:!(s.goalForm.name||'').trim()||!(parseFloat(s.goalForm.target)>0),
+      utilVal:String(s.utilities), setUtil:e=>this.setNum('utilities',e),
+      salaryConv:this.conv2(s.salary,s.salaryCur), rentConv:this.conv2(s.rent,s.rentCur), utilConv:this.conv2(s.utilities,s.rentCur), loanConv:this.conv2(s.loan,s.loanCur), iouConv:this.conv2(s.iouForm.amount,s.iouForm.cur),
+      rentCurUsd:s.rentCur==='USD'?'on':'', rentCurKhr:s.rentCur==='KHR'?'on':'',
+      setRentCurUsd:()=>this.setState({rentCur:'USD'}), setRentCurKhr:()=>this.setState({rentCur:'KHR'}),
+      loanCurUsd:s.loanCur==='USD'?'on':'', loanCurKhr:s.loanCur==='KHR'?'on':'',
+      setLoanCurUsd:()=>this.setState({loanCur:'USD'}), setLoanCurKhr:()=>this.setState({loanCur:'KHR'}),
+      openIou:()=>this.openIou(), saveIou:()=>this.saveIou(),
+      iouPerson:s.iouForm.person, setIouPerson:e=>this.setState(st=>({iouForm:{...st.iouForm,person:e.target.value}})),
+      iouAmount:s.iouForm.amount, setIouAmount:e=>this.setState(st=>({iouForm:{...st.iouForm,amount:(e.target.value||'').replace(/[^0-9.]/g,'')}})),
+      iouDue:s.iouForm.due, setIouDue:e=>this.setState(st=>({iouForm:{...st.iouForm,due:e.target.value}})),
+      iouUsd:s.iouForm.cur==='USD'?'on':'', iouKhr:s.iouForm.cur==='KHR'?'on':'',
+      setIouUsd:()=>this.setState(st=>({iouForm:{...st.iouForm,cur:'USD'}})), setIouKhr:()=>this.setState(st=>({iouForm:{...st.iouForm,cur:'KHR'}})),
+      iouDisabled:!(s.iouForm.person||'').trim()||!(parseFloat(s.iouForm.amount)>0),
+      iouEditing:!!s.iouForm.id, deleteIou:()=>this.deleteIou(),
+      eDay:s.editSetting==='day', dayTitle, daySpentFmt:this.fmtU(daySpentUSD), dayStatus,
+      dayStatusStyle:{color:daySpentUSD<=0?'var(--muted)':(daySave>=0?C.green:C.red)},
+      dayItems, dayEmpty:dayRaw.length===0,
+      dayPrev:()=>this.setState(st=>({dayIdx:Math.max(0,st.dayIdx-1)})), dayNext:()=>this.setState(st=>({dayIdx:Math.min(34,st.dayIdx+1)})),
+      dayPrevDis:di<=0, dayNextDis:di>=34,
+      openNewCat:()=>this.openCatForm(null), openEditCat:()=>this.openCatForm(s.selCat),
+      catFormName:f.name, setCatFormName:e=>this.setState(st=>({catForm:{...st.catForm,name:e.target.value}})),
+      catBudgetVal:String(f.budget), setCatBudget:e=>this.setState(st=>({catForm:{...st.catForm,budget:(e.target.value||'').replace(/[^0-9.]/g,'')}})),
+      newColors, newIcons, saveCat:()=>this.saveCat(), deleteCat:()=>this.deleteCat(), addCatDisabled:!(f.name||'').trim(),
+      showDelete:!!f.key, saveCatLabel:f.key?'Save changes':'Add category',
+      newPreviewIcon:f.icon, newPreviewStyle:{background:ncAuto+'22',color:ncAuto},
+      heroLabel:heroOver?'Over budget today':'Left to spend today', heroStyle:heroOver?{color:C.red}:{},
+      leftFmt:heroOver?'\u2212'+this.fmtU(Math.abs(leftToday)):this.fmtU(Math.max(leftToday,0)),
+      leftKhr:'\u2248 '+this.fmtK(Math.abs(leftToday)*rate),
+      todayEmpty:s.today.length===0, tomorrowFmt:this.fmtU(tomorrow),
+      goalReached, sweepShow, sweepFmt:this.fmtU(leftToday), sweep:()=>this.sweepToSavings(leftToday),
+      upcoming, upcomingHas:s.remindBills&&upcoming.length>0,
+      showBillNotif:s.remindBills&&!!soon, billNotifBody,
+      remindBills:s.remindBills, remindLabel:s.remindBills?'On · a few days before due':'Off',
+      toggleRemind:()=>this.setState(st=>({remindBills:!st.remindBills})),
+      showCelebrate:s.showCelebrate, closeCelebrate:()=>this.setState({showCelebrate:false}),
+      closeEdit:()=>this.setState({editSetting:null}), stop:e=>e.stopPropagation(),
+      rateVal:String(rate), setRate:e=>this.setNum('rate',e),
+      notifyVal:s.notify, setNotify:e=>this.setState({notify:e.target.value}),
+      // notif
+      notifBody,
+      // onboarding
+      onbBack:s.onbStep>1, oStep1:s.onbStep===1, oStep2:s.onbStep===2, oStep3:s.onbStep===3,
+      d1:s.onbStep>=1?'on':'', d2:s.onbStep>=2?'on':'', d3:s.onbStep>=3?'on':'',
+      oNext:()=>this.oNext(), oPrev:()=>this.oPrev(), oNextLabel:s.onbStep<3?'Continue':'Start budgeting',
+      salaryVal:String(s.salary), setSalary:e=>this.setNum('salary',e),
+      curUsd:s.salaryCur==='USD'?'on':'', curKhr:s.salaryCur==='KHR'?'on':'',
+      setCurUsd:()=>this.setState({salaryCur:'USD'}), setCurKhr:()=>this.setState({salaryCur:'KHR'}),
+      rateFmt:this.fmtK(rate),
+      rentVal:String(s.rent), setRent:e=>this.setNum('rent',e), loanVal:String(s.loan), setLoan:e=>this.setNum('loan',e),
+      fixedFmt:this.fmtU0(fixed),
+      m1:s.mp.save===20?'on':'', m2:s.mp.save===30?'on':'',
+      setMBal:()=>this.setMethod(50,30,20), setMSave:()=>this.setMethod(40,30,30),
+      bdNeeds:{width:s.mp.needs+'%',background:C.primary}, bdWants:{width:s.mp.wants+'%',background:C.amber}, bdSave:{width:s.mp.save+'%',background:C.green},
+      needsFmt:this.fmtU0(needs), wantsFmt:this.fmtU0(wants), saveGoalFmt:this.fmtU0(savingsTarget),
+      salaryFmt:this.fmtU0(salaryUSD), spendableFmt2:this.fmtU0(spendableMonth), estDailyFmt:this.fmtU0(estDaily),
+      t1:s.notify==='20:00'?'on':'', t2:s.notify==='21:00'?'on':'', t3:s.notify==='22:00'?'on':'',
+      setT1:()=>this.setState({notify:'20:00'}), setT2:()=>this.setState({notify:'21:00'}), setT3:()=>this.setState({notify:'22:00'})
+    };
+  }
+}
+</script>
+</body>
+</html>
