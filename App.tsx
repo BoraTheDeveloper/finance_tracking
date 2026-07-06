@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
+  AppState,
   Modal,
   PanResponder,
   Platform,
@@ -40,6 +41,17 @@ import { BALANCED, SAVER, summarizeBudget } from './src/domain/budget';
 import { parseExpenseText } from './src/domain/expenseParser';
 import { bestAndWorst, buildHeatmap } from './src/domain/insights';
 import { formatMoney, formatMoney0, money } from './src/domain/money';
+import {
+  applyDateRollover,
+  elapsedIsoDays,
+  daysRemainingInMonth,
+  filterExpensesByDay,
+  filterExpensesByMonth,
+  isIsoDay,
+  isIsoMonth,
+  isoDayFromDate,
+  isoMonthFromDay,
+} from './src/domain/dates';
 
 type Currency = 'USD' | 'KHR';
 type Screen = 'home' | 'add' | 'categories' | 'detail' | 'goals' | 'insights' | 'settings' | 'onboarding';
@@ -62,6 +74,7 @@ type Expense = {
   amount: number;
   cur: Currency;
   time: string;
+  date: string;
   note?: string;
 };
 
@@ -108,6 +121,9 @@ type AppModel = {
   goals: Goal[];
   ious: Iou[];
   history: number[];
+  rolloverUsd: number;
+  lastActiveDay: string;
+  lastActiveMonth: string;
   paidBills: Record<string, boolean>;
 };
 
@@ -133,6 +149,27 @@ type Drafts = {
 };
 
 const RATE = 4100;
+
+const INITIAL_DAY = isoDayFromDate(new Date());
+const INITIAL_MONTH = isoMonthFromDay(INITIAL_DAY);
+
+function shiftIsoMonth(month: string, delta: number) {
+  const [year, monthIndex] = month.split('-').map(Number);
+  return isoMonthFromDay(isoDayFromDate(new Date(year, monthIndex - 1 + delta, 1)));
+}
+
+function monthLabel(month: string) {
+  const [year, monthIndex] = month.split('-').map(Number);
+  return new Date(year, monthIndex - 1, 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+}
+
+
+function greetingFor(date = new Date()) {
+  const hour = date.getHours();
+  if (hour < 12) return 'Good morning';
+  if (hour < 17) return 'Good afternoon';
+  return 'Good evening';
+}
 
 const PALETTE = [
   '#ef8b4f', '#f0663f', '#e0603a', '#e05a8a', '#ec4899', '#9b6dff', '#7c5cff', '#8b5cf6',
@@ -169,15 +206,18 @@ const INITIAL_MODEL: AppModel = {
     { key: 'other', label: 'Other', icon: 'category', color: '#8a8d99', spentUsd: 0, budgetUsd: 25 },
   ],
   expenses: [
-    { id: 'seed-phone', name: 'Phone top-up', cat: 'bills', amount: 2, cur: 'USD', time: '6:05 PM' },
-    { id: 'seed-lunch', name: 'Lunch', cat: 'food', amount: 3, cur: 'USD', time: '12:30 PM' },
-    { id: 'seed-bus', name: 'Bus to work', cat: 'transport', amount: 4000, cur: 'KHR', time: '8:40 AM' },
-    { id: 'seed-coffee', name: 'Morning coffee', cat: 'food', amount: 2.5, cur: 'USD', time: '8:15 AM' },
+    { id: 'seed-phone', name: 'Phone top-up', cat: 'bills', amount: 2, cur: 'USD', time: '6:05 PM', date: INITIAL_DAY },
+    { id: 'seed-lunch', name: 'Lunch', cat: 'food', amount: 3, cur: 'USD', time: '12:30 PM', date: INITIAL_DAY },
+    { id: 'seed-bus', name: 'Bus to work', cat: 'transport', amount: 4000, cur: 'KHR', time: '8:40 AM', date: INITIAL_DAY },
+    { id: 'seed-coffee', name: 'Morning coffee', cat: 'food', amount: 2.5, cur: 'USD', time: '8:15 AM', date: INITIAL_DAY },
   ],
   goals: [{ id: 'seed-goal', name: 'Malaysia trip', icon: 'flight', target: 600, saved: 180, perMonth: 100, cur: 'USD' }],
   ious: [{ id: 'seed-iou', person: 'Sokha', amount: 25, cur: 'USD', due: 'early Aug' }],
-  history: [12, 8, 0, 17, 22, 9, 14, 6, 19, 11, 0, 25, 7, 13, 10, 8, 16, 21, 5, 0, 12, 9, 28, 7, 14, 11, 6, 18, 8, 0, 13, 19, 24, 10, 9],
+  history: [],
+  rolloverUsd: 0,
   paidBills: {},
+  lastActiveDay: INITIAL_DAY,
+  lastActiveMonth: INITIAL_MONTH,
 };
 
 const INITIAL_DRAFTS: Drafts = {
@@ -200,6 +240,110 @@ const INITIAL_DRAFTS: Drafts = {
   goalTarget: '',
   goalPer: '',
 };
+
+type PersistedExpense = Omit<Expense, 'date'> & { date?: unknown };
+type PersistedAppModel = Partial<Omit<AppModel, 'expenses' | 'lastActiveDay' | 'lastActiveMonth'>> & {
+  expenses?: PersistedExpense[];
+  lastActiveDay?: unknown;
+  lastActiveMonth?: unknown;
+};
+
+function summarizeModelForDay(model: AppModel, day: string, rolloverUsd: number) {
+  const month = isoMonthFromDay(day);
+  const monthExpenses = filterExpensesByMonth(model.expenses, month);
+  const monthSpendByCategory = new Map<string, number>();
+  monthExpenses.forEach((expense) => {
+    monthSpendByCategory.set(expense.cat, (monthSpendByCategory.get(expense.cat) ?? 0) + amountUsd(expense.amount, expense.cur, model.rate));
+  });
+  const method = model.method === 'custom'
+    ? { key: 'custom' as const, needsPct: model.custom.needs, wantsPct: model.custom.wants, savePct: model.custom.save }
+    : model.method === 'balanced' ? BALANCED : SAVER;
+
+  return summarizeBudget({
+    salary: money(model.salaryCur === 'USD' ? Math.round(model.salary * 100) : Math.round(model.salary), model.salaryCur),
+    fixedCosts: [money(Math.round(model.rent * 100), 'USD'), money(Math.round(model.utilities * 100), 'USD'), money(Math.round(model.loan * 100), 'USD')],
+    savedSoFar: money(Math.round(model.goals.reduce((sum, goal) => sum + amountUsd(goal.saved, goal.cur, model.rate), 0) * 100), 'USD'),
+    categorySpend: model.categories.map((category) => ({
+      key: category.key,
+      spent: money(Math.round((monthSpendByCategory.get(category.key) ?? 0) * 100), 'USD' as const),
+      budget: money(Math.round(category.budgetUsd * 100), 'USD' as const),
+    })),
+    todayExpenses: filterExpensesByDay(model.expenses, day).map((expense) => money(expense.cur === 'USD' ? Math.round(expense.amount * 100) : Math.round(expense.amount), expense.cur)),
+    method,
+    rate: { khrPerUsd: model.rate },
+    daysLeftIncludingToday: daysRemainingInMonth(day),
+    rolloverYesterday: money(Math.round(rolloverUsd * 100), 'USD'),
+  });
+}
+
+function rolloverUsdAfterElapsedDays(model: AppModel, elapsedDays: readonly string[]) {
+  let rolloverUsd = model.rolloverUsd;
+  elapsedDays.forEach((day) => {
+    const dayBudget = summarizeModelForDay(model, day, rolloverUsd);
+    rolloverUsd = Math.max(0, dayBudget.leftTodayUsd.amountMinor / 100);
+  });
+  return rolloverUsd;
+}
+
+function normalizeLoadedModel(state: PersistedAppModel | undefined, today = isoDayFromDate(new Date())): AppModel {
+  const todayMonth = isoMonthFromDay(today);
+  const raw = state ?? {};
+  const expenses = (raw.expenses ?? INITIAL_MODEL.expenses).map((expense) => {
+    const date = expense.date;
+    return {
+      ...expense,
+      date: typeof date === 'string' && isIsoDay(date) ? date : today,
+    };
+  });
+  const rawLastActiveDay = raw.lastActiveDay;
+  const rawLastActiveMonth = raw.lastActiveMonth;
+  const rawRolloverUsd = raw.rolloverUsd;
+  const lastActiveDay = typeof rawLastActiveDay === 'string' && isIsoDay(rawLastActiveDay) ? rawLastActiveDay : today;
+  const lastActiveMonth = typeof rawLastActiveMonth === 'string' && isIsoMonth(rawLastActiveMonth) ? rawLastActiveMonth : todayMonth;
+  let next: AppModel = {
+    ...INITIAL_MODEL,
+    ...raw,
+    custom: { ...INITIAL_MODEL.custom, ...(raw.custom ?? {}) },
+    categories: raw.categories ?? INITIAL_MODEL.categories,
+    expenses,
+    goals: raw.goals ?? INITIAL_MODEL.goals,
+    ious: raw.ious ?? INITIAL_MODEL.ious,
+    history: (raw.history ?? INITIAL_MODEL.history).filter(Number.isFinite).slice(-35),
+    rolloverUsd: typeof rawRolloverUsd === 'number' && Number.isFinite(rawRolloverUsd) ? rawRolloverUsd : 0,
+    paidBills: raw.paidBills ?? {},
+    lastActiveDay,
+    lastActiveMonth,
+  };
+
+  const rollover = applyDateRollover({
+    today,
+    lastActiveDay: next.lastActiveDay,
+    lastActiveMonth: next.lastActiveMonth,
+    expenses: next.expenses,
+    history: next.history,
+    categories: next.categories,
+    paidBills: next.paidBills,
+    swept: next.swept,
+    khrPerUsd: next.rate,
+  });
+  const elapsedDays = elapsedIsoDays(lastActiveDay, today);
+  const priorLeftUsd = rollover.dailyRolledOver && !rollover.monthlyRolledOver
+    ? rolloverUsdAfterElapsedDays(next, elapsedDays)
+    : next.rolloverUsd;
+
+  next = {
+    ...next,
+    history: rollover.history,
+    categories: rollover.categories,
+    paidBills: rollover.paidBills,
+    swept: rollover.swept ?? next.swept,
+    rolloverUsd: rollover.monthlyRolledOver ? 0 : priorLeftUsd,
+    lastActiveDay: rollover.lastActiveDay,
+    lastActiveMonth: rollover.lastActiveMonth,
+  };
+
+  return next;
+}
 
 const LIGHT = {
   page: '#f5f6f8',
@@ -440,7 +584,7 @@ export default function App() {
   const goalHeights = useRef<Record<string, number>>({}).current;
   const dragY = useRef(new Animated.Value(0)).current;
   const [exportOpen, setExportOpen] = useState(false);
-  const [exportMonth, setExportMonth] = useState(() => new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' }));
+  const [exportMonth, setExportMonth] = useState(() => isoMonthFromDay(isoDayFromDate(new Date())));
   const [fontsLoaded] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -456,14 +600,23 @@ export default function App() {
 
   useEffect(() => {
     try {
-      const saved = loadAppState<AppModel>();
-      if (saved) setModel({ ...INITIAL_MODEL, ...saved.state });
+      const saved = loadAppState<PersistedAppModel>();
+      setModel(normalizeLoadedModel(saved?.state));
     } catch (error) {
       console.warn('Could not load Luy Khnom state', error);
+      setModel(normalizeLoadedModel(undefined));
     } finally {
       setHydrated(true);
     }
   }, []);
+
+  useEffect(() => {
+    if (!hydrated) return undefined;
+    const subscription = AppState.addEventListener('change', (state) => {
+      if (state === 'active') setModel((current) => normalizeLoadedModel(current));
+    });
+    return () => subscription.remove();
+  }, [hydrated]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -474,33 +627,45 @@ export default function App() {
     }
   }, [model, hydrated]);
 
+  const today = isoDayFromDate(new Date());
+  const thisMonth = isoMonthFromDay(today);
+  const todayExpenses = filterExpensesByDay(model.expenses, today);
+  const monthExpenses = filterExpensesByMonth(model.expenses, thisMonth);
+  const monthSpendByCategory = new Map<string, number>();
+  monthExpenses.forEach((expense) => {
+    monthSpendByCategory.set(expense.cat, (monthSpendByCategory.get(expense.cat) ?? 0) + amountUsd(expense.amount, expense.cur, model.rate));
+  });
+  const categoryMonthSpentUsd = (key: string) => monthSpendByCategory.get(key) ?? 0;
+  const savedSoFarUsd = money(Math.round(model.goals.reduce((sum, goal) => sum + amountUsd(goal.saved, goal.cur, model.rate), 0) * 100), 'USD');
   const method = model.method === 'custom'
     ? { key: 'custom' as const, needsPct: model.custom.needs, wantsPct: model.custom.wants, savePct: model.custom.save }
     : model.method === 'balanced' ? BALANCED : SAVER;
   const categorySpend = model.categories.map((category) => ({
     key: category.key,
-    spent: money(Math.round(category.spentUsd * 100), 'USD' as const),
+    spent: money(Math.round(categoryMonthSpentUsd(category.key) * 100), 'USD' as const),
     budget: money(Math.round(category.budgetUsd * 100), 'USD' as const),
   }));
-  const todayMoney = model.expenses.map((expense) => money(expense.cur === 'USD' ? Math.round(expense.amount * 100) : Math.round(expense.amount), expense.cur));
-  const budget = summarizeBudget({
+  const todayMoney = todayExpenses.map((expense) => money(expense.cur === 'USD' ? Math.round(expense.amount * 100) : Math.round(expense.amount), expense.cur));
+  const budgetInput = {
     salary: money(model.salaryCur === 'USD' ? Math.round(model.salary * 100) : Math.round(model.salary), model.salaryCur),
     fixedCosts: [money(Math.round(model.rent * 100), 'USD'), money(Math.round(model.utilities * 100), 'USD'), money(Math.round(model.loan * 100), 'USD')],
-    savedSoFar: money(23200, 'USD'),
+    savedSoFar: savedSoFarUsd,
     categorySpend,
     todayExpenses: todayMoney,
     method,
     rate: { khrPerUsd: model.rate },
-    daysLeftIncludingToday: 27,
-    rolloverYesterday: money(700, 'USD'),
-  });
+    daysLeftIncludingToday: daysRemainingInMonth(today),
+  };
+  const rolloverYesterday = money(Math.round(model.rolloverUsd * 100), 'USD');
+  const budget = summarizeBudget({ ...budgetInput, rolloverYesterday });
   const parsed = parseExpenseText(drafts.addText);
   const parsedCat = categoryFor(model.categories, drafts.selectedCat || parsed.categoryKey);
   const parsedAmount = parsed.amount;
   const ringColor = budget.status === 'over' ? theme.red : budget.ringPct < 0.35 ? theme.amber : theme.green;
   const selectedCategory = categoryFor(model.categories, drafts.selectedCat);
   const selectedExpense = model.expenses.find((expense) => expense.id === drafts.selectedExpenseId) ?? null;
-  const heatmap = buildHeatmap(model.history, budget.dailyBudgetUsd.amountMinor / 100);
+  const chartHistory = [...model.history, budget.spentTodayUsd.amountMinor / 100].slice(-35);
+  const heatmap = buildHeatmap(chartHistory, budget.dailyBudgetUsd.amountMinor / 100);
 
   function showToast(message: string) {
     setToast(message);
@@ -527,6 +692,7 @@ export default function App() {
       amount,
       cur: parsedAmount.currency,
       time: nowTime(),
+      date: isoDayFromDate(new Date()),
       note: drafts.addNote.trim() || undefined,
     };
     const usdValue = amountUsd(expense.amount, expense.cur, model.rate);
@@ -544,10 +710,11 @@ export default function App() {
     const expense = model.expenses.find((item) => item.id === id);
     if (!expense) return;
     const usdValue = amountUsd(expense.amount, expense.cur, model.rate);
+    const adjustCurrentMonth = isoMonthFromDay(expense.date) === thisMonth;
     updateModel((current) => ({
       ...current,
       expenses: current.expenses.filter((item) => item.id !== id),
-      categories: current.categories.map((item) => (item.key === expense.cat ? { ...item, spentUsd: Math.max(0, item.spentUsd - usdValue) } : item)),
+      categories: adjustCurrentMonth ? current.categories.map((item) => (item.key === expense.cat ? { ...item, spentUsd: Math.max(0, item.spentUsd - usdValue) } : item)) : current.categories,
     }));
     showToast(`Removed ${expense.name}`);
   }
@@ -558,15 +725,16 @@ export default function App() {
     const oldUsd = amountUsd(selectedExpense.amount, selectedExpense.cur, model.rate);
     const newUsd = amountUsd(amount, drafts.entryCur, model.rate);
     const note = drafts.addNote.trim() || undefined;
+    const adjustCurrentMonth = isoMonthFromDay(selectedExpense.date) === thisMonth;
     updateModel((current) => ({
       ...current,
       expenses: current.expenses.map((expense) => (expense.id === selectedExpense.id ? { ...expense, amount, cur: drafts.entryCur, note, cat: drafts.selectedCat || expense.cat } : expense)),
-      categories: current.categories.map((category) => {
+      categories: adjustCurrentMonth ? current.categories.map((category) => {
         let spentUsd = category.spentUsd;
         if (category.key === selectedExpense.cat) spentUsd -= oldUsd;
         if (category.key === (drafts.selectedCat || selectedExpense.cat)) spentUsd += newUsd;
         return { ...category, spentUsd: Math.max(0, spentUsd) };
-      }),
+      }) : current.categories,
     }));
     setDrafts((current) => ({ ...current, addNote: '' }));
     setSheet(null);
@@ -752,14 +920,18 @@ export default function App() {
 
   async function exportCsv() {
     const rows = [['Date', 'Description', 'Category', 'Amount', 'Currency', 'Note']];
-    model.expenses.forEach((expense) => {
-      rows.push(['Today', expense.name, categoryFor(model.categories, expense.cat).label, String(expense.amount), expense.cur, expense.note ?? '']);
-    });
+    model.expenses
+      .filter((expense) => isoMonthFromDay(expense.date) === exportMonth)
+      .forEach((expense) => {
+        rows.push([expense.date, expense.name, categoryFor(model.categories, expense.cat).label, String(expense.amount), expense.cur, expense.note ?? '']);
+      });
     const csv = rows.map((row) => row.map(csvEscape).join(',')).join('\n');
-    const uri = `${FileSystem.documentDirectory}luy-khnom-export.csv`;
+    const exportLabel = monthLabel(exportMonth);
+    const exportName = `luy-khnom-export-${exportLabel.replace(/\s+/g, '-').toLowerCase()}`;
+    const uri = `${FileSystem.documentDirectory}${exportName}.csv`;
     await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
     if (await Sharing.isAvailableAsync()) {
-      await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: 'Export Luy Khnom CSV' });
+      await Sharing.shareAsync(uri, { mimeType: 'text/csv', dialogTitle: `Export Luy Khnom CSV — ${exportLabel}` });
     }
     showToast('CSV exported');
   }
@@ -867,7 +1039,7 @@ export default function App() {
     return (
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
-          <View style={styles.brandRow}><View style={[styles.logo, { backgroundColor: theme.primary }]}><AppText style={styles.logoText}>៛</AppText></View><View><AppText style={[styles.greet, { color: theme.muted }]}>Good evening</AppText><AppText style={[styles.title, { color: theme.text }]}>Today's budget</AppText></View></View>
+          <View style={styles.brandRow}><View style={[styles.logo, { backgroundColor: theme.primary }]}><AppText style={styles.logoText}>៛</AppText></View><View><AppText style={[styles.greet, { color: theme.muted }]}>{greetingFor()}</AppText><AppText style={[styles.title, { color: theme.text }]}>Today's budget</AppText></View></View>
           <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => updateModel((current) => ({ ...current, dark: !current.dark }))}><MaterialIcons name={model.dark ? 'light-mode' : 'dark-mode'} size={20} color={theme.muted} /></TouchableOpacity>
         </View>
         <View style={styles.ringWrap}>
@@ -878,12 +1050,12 @@ export default function App() {
             <AppText style={[styles.ringKhr, { color: theme.muted }]}>≈ {leftAlt}</AppText>
           </View>
         </View>
-        <Pill icon="bolt" text={`${formatMoney(budget.baseDailyUsd)} base + $7.00 rolled over`} theme={theme} />
+        <Pill icon="bolt" text={`${formatMoney(budget.baseDailyUsd)} base + ${formatMoney(rolloverYesterday)} rolled over`} theme={theme} />
         <Pill icon="trending-up" text={`Tomorrow ≈ ${formatMoney(budget.tomorrowUsd)} at this pace`} theme={theme} />
         <TouchableOpacity activeOpacity={0.7} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => setSheet('month')}>
-          <View style={[styles.row, { marginBottom: 16 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>This month</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>27 days left</AppText></View></View>
+          <View style={[styles.row, { marginBottom: 16 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>This month</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>{daysRemainingInMonth(today)} days left</AppText></View></View>
           <Progress label="Spent" value={formatMoney(budget.spentMonthUsd)} total={formatMoney0(budget.spendableMonthUsd)} pct={budget.monthPct} color={theme.primary} theme={theme} />
-          <Progress label="Saved so far" value="$232" total={formatMoney0(budget.savingsTargetUsd)} pct={budget.savingsPct} color={theme.green} theme={theme} />
+          <Progress label="Saved so far" value={formatMoney(savedSoFarUsd)} total={formatMoney0(budget.savingsTargetUsd)} pct={budget.savingsPct} color={theme.green} theme={theme} />
           {model.swept ? <View style={[styles.sweep, { backgroundColor: `${theme.green}1f` }]}><MaterialIcons name="celebration" size={18} color={theme.green} /><AppText style={[styles.chipText, { color: theme.green, fontFamily: FONT.bold }]}>Savings goal reached this month</AppText></View> : budget.leftTodayUsd.amountMinor > 0 ? <TouchableOpacity style={[styles.sweep, { backgroundColor: theme.primaryWash }]} onPress={sweepLeftover}><MaterialIcons name="savings" size={18} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>Sweep {usd(budget.leftTodayUsd.amountMinor / 100)} leftover into savings</AppText></TouchableOpacity> : null}
         </TouchableOpacity>
         {topGoals.length > 0 ? <><SectionHeader title={topGoals.length > 1 ? 'Top goals' : 'Goal'} action="All goals" theme={theme} onAction={() => go('goals')} />{topGoals.map((goal) => <TouchableOpacity key={goal.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line, marginTop: 0, marginBottom: 10 }]} onPress={() => go('goals')}><View style={[styles.expenseRow, { borderBottomWidth: 0, paddingVertical: 0, marginBottom: 12 }]}><View style={[styles.bubble, { backgroundColor: `${theme.primary}1f` }]}><Glyph name={goal.icon} color={theme.primary} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text }]}>{goal.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{amountLabel(goal.perMonth, goal.cur)}/month</AppText>{monthsToGo(goal) ? <AppText style={[styles.itemSub, { color: theme.muted }]}>{monthsToGo(goal)}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(goal.saved, goal.cur)}</AppText></View><View style={[styles.track, { backgroundColor: theme.surface2 }]}><View style={[styles.fill, { width: `${Math.min(100, (goal.saved / goal.target) * 100)}%`, backgroundColor: theme.primary }]} /></View></TouchableOpacity>)}</> : null}
@@ -892,7 +1064,7 @@ export default function App() {
         {model.billReminders && !model.paidBills.rent ? <Upcoming icon="receipt-long" color="#d98a00" title="Rent & utilities" subtitle={dueText(model.rentDue)} amount={usd(model.rent + model.utilities)} theme={theme} onPress={() => setSheet('fixed')} onDone={() => markBillPaid('rent', 'Rent & utilities')} /> : null}
         {model.ious.map((iou) => <Upcoming key={iou.id} icon="account-balance-wallet" color="#3ba6d4" title={`Pay back ${iou.person}`} subtitle={`Borrowed · due ${iou.due}`} amount={amountLabel(iou.amount, iou.cur)} theme={theme} onPress={() => { setDrafts((current) => ({ ...current, iouPerson: iou.person, iouAmount: String(iou.amount), iouDue: iou.due, iouEditId: iou.id })); setSheet('iou'); }} onDone={() => settleIou(iou.id, iou.person)} />)}
         <SectionHeader title="Today" action="Summary" theme={theme} onAction={() => go('insights')} />
-        {model.expenses.map((expense) => {
+        {todayExpenses.map((expense) => {
           const cat = categoryFor(model.categories, expense.cat);
           return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><View style={{ alignItems: 'flex-end' }}><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></View><TouchableOpacity onPress={() => deleteExpense(expense.id)} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="close" size={18} color={theme.faint} /></TouchableOpacity></TouchableOpacity>;
         })}
@@ -923,20 +1095,20 @@ export default function App() {
     return (
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {renderTopBar('Categories', 'Where your Wants budget is going this month.')}
-        <View style={styles.grid}>{model.categories.filter((cat) => cat.budgetUsd > 0).map((cat) => { const pct = Math.round((cat.spentUsd / cat.budgetUsd) * 100); const over = cat.spentUsd > cat.budgetUsd; return <TouchableOpacity key={cat.key} style={[styles.catCard, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedCat: cat.key })); go('detail'); }}><View style={styles.row}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><MaterialIcons name="chevron-right" size={20} color={theme.faint} /></View><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14, marginTop: 10 }]}>{cat.label}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 2 }]}>{usd(cat.spentUsd)} of {usd0(cat.budgetUsd)}</AppText><View style={[styles.track, { backgroundColor: theme.surface2, height: 7, marginTop: 11 }]}><View style={[styles.fill, { backgroundColor: over ? theme.red : cat.color, width: `${Math.min(100, pct)}%` }]} /></View><AppText style={[styles.itemSub, { color: over ? theme.red : theme.muted, fontFamily: FONT.bold, marginTop: 8 }]}>{pct}% used</AppText></TouchableOpacity>; })}</View>
+        <View style={styles.grid}>{model.categories.filter((cat) => cat.budgetUsd > 0).map((cat) => { const spentUsd = categoryMonthSpentUsd(cat.key); const pct = Math.round((spentUsd / cat.budgetUsd) * 100); const over = spentUsd > cat.budgetUsd; return <TouchableOpacity key={cat.key} style={[styles.catCard, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedCat: cat.key })); go('detail'); }}><View style={styles.row}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><MaterialIcons name="chevron-right" size={20} color={theme.faint} /></View><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14, marginTop: 10 }]}>{cat.label}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 2 }]}>{usd(spentUsd)} of {usd0(cat.budgetUsd)}</AppText><View style={[styles.track, { backgroundColor: theme.surface2, height: 7, marginTop: 11 }]}><View style={[styles.fill, { backgroundColor: over ? theme.red : cat.color, width: `${Math.min(100, pct)}%` }]} /></View><AppText style={[styles.itemSub, { color: over ? theme.red : theme.muted, fontFamily: FONT.bold, marginTop: 8 }]}>{pct}% used</AppText></TouchableOpacity>; })}</View>
         <TouchableOpacity style={[styles.dashed, { borderColor: theme.faint }]} onPress={() => openCatSheet(null)}><MaterialIcons name="add" size={20} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>Add category</AppText></TouchableOpacity>
       </ScrollView>
     );
   }
 
   function renderDetail() {
-    const txns = model.expenses.filter((expense) => expense.cat === selectedCategory.key);
+    const txns = monthExpenses.filter((expense) => expense.cat === selectedCategory.key);
     return (
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {renderTopBar(selectedCategory.label, undefined, 'categories', <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => openCatSheet(selectedCategory.key)}><MaterialIcons name="edit" size={19} color={theme.muted} /></TouchableOpacity>)}
-        <View style={[styles.card, styles.row, { backgroundColor: theme.surface, borderColor: theme.line, marginBottom: 0 }]}><View style={{ flex: 1 }}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 6 }]}>Spent this month</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 32, marginTop: 0 }]}>{usd(selectedCategory.spentUsd)}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 2 }]}>of {usd0(selectedCategory.budgetUsd)} budget</AppText></View><View style={[styles.bubbleLarge, { backgroundColor: `${selectedCategory.color}22`, width: 56, height: 56, borderRadius: 18 }]}><Glyph name={selectedCategory.icon} size={30} color={selectedCategory.color} /></View></View>
+        <View style={[styles.card, styles.row, { backgroundColor: theme.surface, borderColor: theme.line, marginBottom: 0 }]}><View style={{ flex: 1 }}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 6 }]}>Spent this month</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 32, marginTop: 0 }]}>{usd(categoryMonthSpentUsd(selectedCategory.key))}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 2 }]}>of {usd0(selectedCategory.budgetUsd)} budget</AppText></View><View style={[styles.bubbleLarge, { backgroundColor: `${selectedCategory.color}22`, width: 56, height: 56, borderRadius: 18 }]}><Glyph name={selectedCategory.icon} size={30} color={selectedCategory.color} /></View></View>
         <SectionHeader title="Transactions" theme={theme} />
-        {txns.map((expense) => <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${selectedCategory.color}22` }]}><Glyph name={selectedCategory.icon} color={selectedCategory.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>)}
+        {txns.map((expense) => <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${selectedCategory.color}22` }]}><Glyph name={selectedCategory.icon} color={selectedCategory.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.date} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>)}
       </ScrollView>
     );
   }
@@ -965,8 +1137,12 @@ export default function App() {
 
   function renderInsights() {
     const dailyBudget = budget.dailyBudgetUsd.amountMinor / 100;
-    const week = model.history.slice(-7);
-    const weekLabels = ['M', 'T', 'W', 'T', 'F', 'S', 'S'];
+    const week = chartHistory.slice(-7);
+    const weekLabels = week.map((_value, index) => {
+      const date = new Date();
+      date.setDate(date.getDate() - (week.length - 1 - index));
+      return date.toLocaleDateString('en-US', { weekday: 'short' }).slice(0, 1);
+    });
     const chartH = 120;
     const labelOffset = 20;
     const maxVal = Math.max(dailyBudget, ...week, 1) * 1.15;
@@ -976,21 +1152,19 @@ export default function App() {
     // overflow made the grid wrap at 6 columns); space-between absorbs the slack.
     const heatSize = heatWidth > 0 ? Math.floor((heatWidth - heatGap * 6) / 7) : 0;
     const heatRows = Array.from({ length: Math.ceil(heatmap.length / 7) }, (_item, row) => heatmap.slice(row * 7, row * 7 + 7));
-    const { spentMost, savedMost } = bestAndWorst(model.history, dailyBudget);
+    const { spentMost, savedMost } = bestAndWorst(chartHistory, dailyBudget);
     const dayLabel = (index: number) => {
       const date = new Date();
-      date.setDate(date.getDate() - (model.history.length - 1 - index));
+      date.setDate(date.getDate() - (chartHistory.length - 1 - index));
       return date.toLocaleDateString('en-US', { weekday: 'short' });
     };
-    const exportMonths = [0, 1, 2].map((back) => {
-      const date = new Date();
-      date.setMonth(date.getMonth() - back);
-      return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-    });
+    const topCategory = model.categories.map((category) => ({ category, spentUsd: categoryMonthSpentUsd(category.key) })).sort((a, b) => b.spentUsd - a.spentUsd)[0];
+    const insightTip = topCategory && topCategory.spentUsd > 0 ? `${topCategory.category.label} is your top spend this month. Small cuts there will move your savings fastest.` : 'Add expenses today to see category-specific savings tips.';
+    const exportMonths = [0, -1, -2].map((delta) => shiftIsoMonth(thisMonth, delta));
     return (
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {renderTopBar('Insights', 'Your end-of-day summary, all in one place.')}
-        <View style={[styles.statusCard, { backgroundColor: budget.status === 'over' ? theme.red : theme.green }]}><View style={styles.statusPill}><MaterialIcons name="schedule" size={15} color="#fff" /><AppText style={styles.statusPillText}>End of day · today</AppText></View><AppText style={styles.statusHeadline}>{budget.status === 'over' ? 'A little over today — tomorrow adjusts for you.' : "You're under budget today — nice work."}</AppText><View style={styles.statRow}><Stat label="Spent today" value={formatMoney(budget.spentTodayUsd)} /><Stat label="Saved today" value={formatMoney(money(Math.max(budget.leftTodayUsd.amountMinor, 0), 'USD'))} /></View><View style={styles.tip}><MaterialIcons name="lightbulb" size={20} color="#fff" /><AppText style={styles.tipText}>Food is your top spend this week. Cooking one dinner at home could add ~$6 to savings.</AppText></View></View>
+        <View style={[styles.statusCard, { backgroundColor: budget.status === 'over' ? theme.red : theme.green }]}><View style={styles.statusPill}><MaterialIcons name="schedule" size={15} color="#fff" /><AppText style={styles.statusPillText}>End of day · today</AppText></View><AppText style={styles.statusHeadline}>{budget.status === 'over' ? 'A little over today — tomorrow adjusts for you.' : "You're under budget today — nice work."}</AppText><View style={styles.statRow}><Stat label="Spent today" value={formatMoney(budget.spentTodayUsd)} /><Stat label="Saved today" value={formatMoney(money(Math.max(budget.leftTodayUsd.amountMinor, 0), 'USD'))} /></View><View style={styles.tip}><MaterialIcons name="lightbulb" size={20} color="#fff" /><AppText style={styles.tipText}>{insightTip}</AppText></View></View>
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><View style={[styles.row, { marginBottom: 14 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>This week</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>Daily budget {formatMoney(budget.dailyBudgetUsd)}</AppText></View></View>
           <View style={{ position: 'relative' }}>
             <View style={[styles.chart, { height: chartH + labelOffset }]}>{week.map((value, index) => <TouchableOpacity key={index} activeOpacity={0.7} style={styles.barCol} onPress={() => showToast(`${weekLabels[index]} · ${usd(value)}`)}><View style={[styles.bar, { height: Math.max(6, (value / maxVal) * chartH), backgroundColor: value > dailyBudget ? theme.amber : theme.primary }]} /><AppText style={[styles.barDay, { color: theme.muted }]}>{weekLabels[index]}</AppText></TouchableOpacity>)}</View>
@@ -1002,17 +1176,17 @@ export default function App() {
           <View onLayout={(event) => setHeatWidth(event.nativeEvent.layout.width)}>{heatSize > 0 ? heatRows.map((row, rowIndex) => <View key={rowIndex} style={{ flexDirection: 'row', justifyContent: row.length === 7 ? 'space-between' : 'flex-start', gap: row.length === 7 ? 0 : heatGap, marginTop: rowIndex === 0 ? 0 : heatGap }}>{row.map((cell) => <TouchableOpacity key={cell.index} style={{ width: heatSize, height: heatSize, borderRadius: 5, backgroundColor: heatColor(cell.status, theme) }} onPress={() => showToast(`${cell.label} · ${usd(cell.spentUsdCents / 100)}`)} />)}</View>) : null}</View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}><AppText style={[styles.itemSub, { color: theme.muted }]}>saved</AppText>{['#1f8a5b', '#a9dcc4', '#e0a63a', '#e0603a'].map((c) => <View key={c} style={{ width: 13, height: 13, borderRadius: 4, backgroundColor: c }} />)}<AppText style={[styles.itemSub, { color: theme.muted }]}>over</AppText></View>
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
-            <View style={[styles.statMini, { backgroundColor: theme.surface2 }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 4, fontSize: 11 }]}>Spent most</AppText><AppText style={[styles.amount, { color: theme.text, textAlign: 'left' }]}>{spentMost >= 0 ? `${dayLabel(spentMost)} · ${usd(model.history[spentMost])}` : '—'}</AppText></View>
-            <View style={[styles.statMini, { backgroundColor: theme.surface2 }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 4, fontSize: 11 }]}>Best saving day</AppText><AppText style={[styles.amount, { color: theme.text, textAlign: 'left' }]}>{savedMost >= 0 ? `${dayLabel(savedMost)} · ${usd(model.history[savedMost])}` : '—'}</AppText></View>
+            <View style={[styles.statMini, { backgroundColor: theme.surface2 }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 4, fontSize: 11 }]}>Spent most</AppText><AppText style={[styles.amount, { color: theme.text, textAlign: 'left' }]}>{spentMost >= 0 ? `${dayLabel(spentMost)} · ${usd(chartHistory[spentMost])}` : '—'}</AppText></View>
+            <View style={[styles.statMini, { backgroundColor: theme.surface2 }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 4, fontSize: 11 }]}>Best saving day</AppText><AppText style={[styles.amount, { color: theme.text, textAlign: 'left' }]}>{savedMost >= 0 ? `${dayLabel(savedMost)} · ${usd(chartHistory[savedMost])}` : '—'}</AppText></View>
           </View>
         </View>
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
           <AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14, marginBottom: 12 }]}>Export data</AppText>
           <View style={{ flexDirection: 'row', gap: 12, alignItems: 'center' }}>
-            <TouchableOpacity style={[styles.input, { flex: 1, paddingVertical: 13, backgroundColor: theme.surface, borderColor: theme.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} onPress={() => setExportOpen((open) => !open)}><AppText style={{ fontFamily: FONT.semibold, fontSize: 14, color: theme.text }}>{exportMonth}</AppText><MaterialIcons name="expand-more" size={20} color={theme.muted} /></TouchableOpacity>
+            <TouchableOpacity style={[styles.input, { flex: 1, paddingVertical: 13, backgroundColor: theme.surface, borderColor: theme.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} onPress={() => setExportOpen((open) => !open)}><AppText style={{ fontFamily: FONT.semibold, fontSize: 14, color: theme.text }}>{monthLabel(exportMonth)}</AppText><MaterialIcons name="expand-more" size={20} color={theme.muted} /></TouchableOpacity>
             <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, minHeight: 48, paddingHorizontal: 20 }]} onPress={exportCsv}><MaterialIcons name="download" size={18} color="#fff" /><AppText style={styles.buttonText}>CSV</AppText></TouchableOpacity>
           </View>
-          {exportOpen ? <View style={{ marginTop: 8, borderWidth: 1, borderColor: theme.line, borderRadius: 14, overflow: 'hidden' }}>{exportMonths.map((month) => <TouchableOpacity key={month} style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: month === exportMonth ? theme.primaryWash : theme.surface }} onPress={() => { setExportMonth(month); setExportOpen(false); }}><AppText style={{ fontFamily: FONT.semibold, fontSize: 14, color: month === exportMonth ? theme.primary : theme.text }}>{month}</AppText></TouchableOpacity>)}</View> : null}
+          {exportOpen ? <View style={{ marginTop: 8, borderWidth: 1, borderColor: theme.line, borderRadius: 14, overflow: 'hidden' }}>{exportMonths.map((month) => <TouchableOpacity key={month} style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: month === exportMonth ? theme.primaryWash : theme.surface }} onPress={() => { setExportMonth(month); setExportOpen(false); }}><AppText style={{ fontFamily: FONT.semibold, fontSize: 14, color: month === exportMonth ? theme.primary : theme.text }}>{monthLabel(month)}</AppText></TouchableOpacity>)}</View> : null}
         </View>
       </ScrollView>
     );
@@ -1074,10 +1248,10 @@ export default function App() {
             {sheet === 'iou' ? <View><SheetInput label="Who did you borrow from?" value={drafts.iouPerson} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouPerson: value }))} /><MoneyField label="Amount" initialAmount={Number(drafts.iouAmount) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouAmount: value ? String(value) : '' }))} /><SheetInput label="Pay back by" value={drafts.iouDue} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouDue: value }))} /><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveIou}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Save</AppText></TouchableOpacity></View> : null}
             {sheet === 'goal' ? <View><SheetInput label="What are you saving for?" value={drafts.goalName} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalName: value }))} /><MoneyField label="Target amount" initialAmount={Number(drafts.goalTarget) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalTarget: value ? String(value) : '' }))} /><MoneyField label="Save per month" initialAmount={Number(drafts.goalPer) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalPer: value ? String(value) : '' }))} /><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveGoal}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Create goal</AppText></TouchableOpacity></View> : null}
             {sheet === 'month' ? <View>
-              <View style={[styles.row, { marginTop: 10 }]}><AppText style={[styles.itemSub, { color: theme.muted }]}>Spent {formatMoney(budget.spentMonthUsd)} of {formatMoney0(budget.spendableMonthUsd)}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{model.expenses.length} transaction{model.expenses.length === 1 ? '' : 's'}</AppText></View>
-              {model.expenses.map((expense) => { const cat = categoryFor(model.categories, expense.cat); return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>; })}
+              <View style={[styles.row, { marginTop: 10 }]}><AppText style={[styles.itemSub, { color: theme.muted }]}>Spent {formatMoney(budget.spentMonthUsd)} of {formatMoney0(budget.spendableMonthUsd)}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{monthExpenses.length} transaction{monthExpenses.length === 1 ? '' : 's'}</AppText></View>
+              {monthExpenses.map((expense) => { const cat = categoryFor(model.categories, expense.cat); return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.date} · {cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>; })}
             </View> : null}
-            {sheet === 'day' ? <View><View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0 }]}>Spent</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 26 }]}>{usd(model.history[drafts.selectedDay] ?? 0)}</AppText></View></View> : null}
+            {sheet === 'day' ? <View><View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0 }]}>Spent</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 26 }]}>{usd(chartHistory[drafts.selectedDay] ?? 0)}</AppText></View></View> : null}
             {sheet && ['income', 'fixed', 'loan', 'method', 'currency', 'reminder'].includes(sheet) ? <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={() => setSheet(null)}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Done</AppText></TouchableOpacity> : null}
             </ScrollView>
           </Pressable>
