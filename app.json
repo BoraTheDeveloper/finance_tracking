@@ -4,7 +4,7 @@
     "slug": "luy-khnom",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/icon.png",
+    "icon": "./assets/luy-khnom-icon-flat.png",
     "userInterfaceStyle": "automatic",
     "ios": {
       "supportsTablet": true
@@ -12,15 +12,13 @@
     "android": {
       "package": "com.luykhnom.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
-        "foregroundImage": "./assets/android-icon-foreground.png",
-        "backgroundImage": "./assets/android-icon-background.png",
-        "monochromeImage": "./assets/android-icon-monochrome.png"
+        "backgroundColor": "#14171C",
+        "foregroundImage": "./assets/luy-khnom-android-icon-foreground-flat.png"
       },
       "predictiveBackGestureEnabled": false
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/luy-khnom-favicon-flat.png"
     },
     "plugins": [
       "expo-sqlite"

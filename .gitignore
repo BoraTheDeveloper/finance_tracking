@@ -39,3 +39,7 @@ yarn-error.*
 # generated native folders
 /ios
 /android
+
+.omx/
+
+design_handoff_sabai_finance/

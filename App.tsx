@@ -43,8 +43,8 @@ import { formatMoney, formatMoney0, money } from './src/domain/money';
 
 type Currency = 'USD' | 'KHR';
 type Screen = 'home' | 'add' | 'categories' | 'detail' | 'goals' | 'insights' | 'settings' | 'onboarding';
-type BudgetMode = 'balanced' | 'saver';
-type Sheet = 'income' | 'fixed' | 'loan' | 'method' | 'currency' | 'reminder' | 'category' | 'entry' | 'iou' | 'goal' | 'day' | null;
+type BudgetMode = 'balanced' | 'saver' | 'custom';
+type Sheet = 'income' | 'fixed' | 'loan' | 'method' | 'currency' | 'reminder' | 'category' | 'entry' | 'iou' | 'goal' | 'day' | 'month' | null;
 
 type Category = {
   key: string;
@@ -98,6 +98,9 @@ type AppModel = {
   rentDue: number;
   loanDue: number;
   method: BudgetMode;
+  custom: { needs: number; wants: number; save: number };
+  baseCur: Currency;
+  swept: boolean;
   notify: string;
   billReminders: boolean;
   categories: Category[];
@@ -113,6 +116,7 @@ type Drafts = {
   addNote: string;
   selectedCat: string;
   selectedExpenseId: string | null;
+  entryCur: Currency;
   selectedDay: number;
   categoryName: string;
   categoryBudget: string;
@@ -150,6 +154,9 @@ const INITIAL_MODEL: AppModel = {
   rentDue: 1,
   loanDue: 15,
   method: 'balanced',
+  custom: { needs: 45, wants: 25, save: 30 },
+  baseCur: 'USD',
+  swept: false,
   notify: '21:00',
   billReminders: true,
   categories: [
@@ -178,6 +185,7 @@ const INITIAL_DRAFTS: Drafts = {
   addNote: '',
   selectedCat: 'food',
   selectedExpenseId: null,
+  entryCur: 'USD',
   selectedDay: 34,
   categoryName: '',
   categoryBudget: '50',
@@ -379,6 +387,12 @@ function nowTime() {
   return `${hour}:${String(date.getMinutes()).padStart(2, '0')} ${suffix}`;
 }
 
+function monthsToGo(goal: Goal) {
+  if (goal.perMonth <= 0 || goal.saved >= goal.target) return null;
+  const months = Math.ceil((goal.target - goal.saved) / goal.perMonth);
+  return `${months} month${months === 1 ? '' : 's'} to go`;
+}
+
 function categoryFor(categories: Category[], key: string) {
   return categories.find((category) => category.key === key) ?? categories[categories.length - 1];
 }
@@ -419,6 +433,7 @@ export default function App() {
   const [hydrated, setHydrated] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [celebrate, setCelebrate] = useState<{ title: string; body: string } | null>(null);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [heatWidth, setHeatWidth] = useState(0);
   const [draggingGoal, setDraggingGoal] = useState<string | null>(null);
@@ -459,7 +474,9 @@ export default function App() {
     }
   }, [model, hydrated]);
 
-  const method = model.method === 'balanced' ? BALANCED : SAVER;
+  const method = model.method === 'custom'
+    ? { key: 'custom' as const, needsPct: model.custom.needs, wantsPct: model.custom.wants, savePct: model.custom.save }
+    : model.method === 'balanced' ? BALANCED : SAVER;
   const categorySpend = model.categories.map((category) => ({
     key: category.key,
     spent: money(Math.round(category.spentUsd * 100), 'USD' as const),
@@ -539,10 +556,11 @@ export default function App() {
     const amount = Number(drafts.iouAmount);
     if (!selectedExpense || !Number.isFinite(amount) || amount <= 0) return;
     const oldUsd = amountUsd(selectedExpense.amount, selectedExpense.cur, model.rate);
-    const newUsd = amountUsd(amount, selectedExpense.cur, model.rate);
+    const newUsd = amountUsd(amount, drafts.entryCur, model.rate);
+    const note = drafts.addNote.trim() || undefined;
     updateModel((current) => ({
       ...current,
-      expenses: current.expenses.map((expense) => (expense.id === selectedExpense.id ? { ...expense, amount, cat: drafts.selectedCat || expense.cat } : expense)),
+      expenses: current.expenses.map((expense) => (expense.id === selectedExpense.id ? { ...expense, amount, cur: drafts.entryCur, note, cat: drafts.selectedCat || expense.cat } : expense)),
       categories: current.categories.map((category) => {
         let spentUsd = category.spentUsd;
         if (category.key === selectedExpense.cat) spentUsd -= oldUsd;
@@ -550,6 +568,7 @@ export default function App() {
         return { ...category, spentUsd: Math.max(0, spentUsd) };
       }),
     }));
+    setDrafts((current) => ({ ...current, addNote: '' }));
     setSheet(null);
     showToast('Entry updated');
   }
@@ -636,6 +655,30 @@ export default function App() {
       });
       showToast(`Moved to priority ${target + 1}`);
     }
+  }
+
+  function sweepLeftover() {
+    const leftoverUsd = Math.max(0, budget.leftTodayUsd.amountMinor) / 100;
+    if (leftoverUsd <= 0) return;
+    if (model.goals.length === 0) {
+      showToast('Create a goal to sweep into');
+      return;
+    }
+    updateModel((current) => ({
+      ...current,
+      swept: true,
+      goals: current.goals.map((goal, index) => {
+        if (index !== 0) return goal;
+        const saved = Math.min(goal.target, goal.saved + leftoverUsd);
+        return { ...goal, saved, celebrated: saved >= goal.target ? true : goal.celebrated };
+      }),
+    }));
+    const topGoal = model.goals[0];
+    const reached = topGoal.saved + leftoverUsd >= topGoal.target;
+    setCelebrate({
+      title: reached ? 'Savings goal reached!' : 'Swept into savings!',
+      body: `You've set aside ${usd(leftoverUsd)} toward ${topGoal.name} — future you says thanks.`,
+    });
   }
 
   function markBillPaid(key: string, label: string) {
@@ -742,7 +785,7 @@ export default function App() {
     const step = model.onbStep;
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.page }]}>
-        <ScrollView contentContainerStyle={styles.scroll}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 140 }]}>
           <View style={[styles.headerRow, { marginTop: 4, marginBottom: 20 }]}>
             <View style={{ width: 40 }}>{step > 1 ? <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => updateModel((current) => ({ ...current, onbStep: current.onbStep - 1 }))}><MaterialIcons name="arrow-back" size={20} color={theme.text} /></TouchableOpacity> : null}</View>
             <View style={styles.dots}>
@@ -771,18 +814,9 @@ export default function App() {
             <View>
               <AppText style={[styles.heroTitle, { color: theme.text }]}>Your fixed monthly costs</AppText>
               <AppText style={[styles.subtitle, { color: theme.muted }]}>Rent and loan come out first — these are your Needs.</AppText>
-              <AppText style={[styles.label, { color: theme.muted }]}>Rent</AppText>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <TextInput style={[styles.input, { flex: 1, backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} keyboardType="decimal-pad" value={String(model.rent)} onChangeText={(value) => updateModel((current) => ({ ...current, rent: Number(value) || 0 }))} />
-                <View style={[styles.duePillBig, { backgroundColor: theme.surface, ...CARD_SHADOW }]}><AppText style={[styles.segmentText, { color: theme.text }]}>Due {ordinal(model.rentDue)}</AppText></View>
-              </View>
-              <AppText style={[styles.label, { color: theme.muted }]}>Utilities (monthly avg)</AppText>
-              <TextInput style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} keyboardType="decimal-pad" value={String(model.utilities)} onChangeText={(value) => updateModel((current) => ({ ...current, utilities: Number(value) || 0 }))} />
-              <AppText style={[styles.label, { color: theme.muted }]}>Loan repayment</AppText>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                <TextInput style={[styles.input, { flex: 1, backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} keyboardType="decimal-pad" value={String(model.loan)} onChangeText={(value) => updateModel((current) => ({ ...current, loan: Number(value) || 0 }))} />
-                <View style={[styles.duePillBig, { backgroundColor: theme.surface, ...CARD_SHADOW }]}><AppText style={[styles.segmentText, { color: theme.text }]}>Due {ordinal(model.loanDue)}</AppText></View>
-              </View>
+              <MoneyField label="Rent" initialAmount={model.rent} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: value }))} right={<View style={[styles.duePillBig, { backgroundColor: theme.surface, ...CARD_SHADOW }]}><AppText style={[styles.segmentText, { color: theme.text }]}>Due {ordinal(model.rentDue)}</AppText></View>} />
+              <MoneyField label="Utilities (monthly avg)" initialAmount={model.utilities} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, utilities: value }))} />
+              <MoneyField label="Loan repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} right={<View style={[styles.duePillBig, { backgroundColor: theme.surface, ...CARD_SHADOW }]}><AppText style={[styles.segmentText, { color: theme.text }]}>Due {ordinal(model.loanDue)}</AppText></View>} />
               <View style={[styles.card, { backgroundColor: theme.primaryWash, borderColor: theme.primaryWash }, styles.row, { marginBottom: 0 }]}><AppText style={[styles.rowValue, { color: theme.text }]}>Fixed each month</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 18, marginTop: 0 }]}>{formatMoney0(budget.fixedUsd)}</AppText></View>
             </View>
           ) : null}
@@ -827,7 +861,9 @@ export default function App() {
 
   function renderHome() {
     const topGoals = model.goals.slice(0, 3);
-    const leftFmt = formatMoney(money(Math.abs(budget.leftTodayUsd.amountMinor), 'USD'));
+    const leftAbsUsd = Math.abs(budget.leftTodayUsd.amountMinor) / 100;
+    const leftFmt = model.baseCur === 'KHR' ? khr(leftAbsUsd * model.rate) : formatMoney(money(Math.abs(budget.leftTodayUsd.amountMinor), 'USD'));
+    const leftAlt = model.baseCur === 'KHR' ? usd(leftAbsUsd) : khr(leftAbsUsd * model.rate);
     return (
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         <View style={styles.headerRow}>
@@ -838,18 +874,19 @@ export default function App() {
           <RingBudget pct={budget.ringPct} color={ringColor} bg={theme.ringTrack} />
           <View style={styles.ringCenter}>
             <AppText style={[styles.ringLabel, { color: theme.muted }]}>{budget.leftTodayUsd.amountMinor < 0 ? 'Over budget today' : 'Left to spend today'}</AppText>
-            <AppText numberOfLines={1} style={[styles.ringAmount, { color: budget.leftTodayUsd.amountMinor < 0 ? theme.red : theme.text, fontSize: leftFmt.length > 8 ? 32 : leftFmt.length > 6 ? 40 : 50 }]}>{leftFmt}</AppText>
-            <AppText style={[styles.ringKhr, { color: theme.muted }]}>≈ {khr(Math.abs(budget.leftTodayUsd.amountMinor / 100) * model.rate)}</AppText>
+            <AppText numberOfLines={1} style={[styles.ringAmount, { color: budget.leftTodayUsd.amountMinor < 0 ? theme.red : theme.text, fontSize: leftFmt.length > 10 ? 26 : leftFmt.length > 8 ? 32 : leftFmt.length > 6 ? 40 : 50 }]}>{leftFmt}</AppText>
+            <AppText style={[styles.ringKhr, { color: theme.muted }]}>≈ {leftAlt}</AppText>
           </View>
         </View>
         <Pill icon="bolt" text={`${formatMoney(budget.baseDailyUsd)} base + $7.00 rolled over`} theme={theme} />
         <Pill icon="trending-up" text={`Tomorrow ≈ ${formatMoney(budget.tomorrowUsd)} at this pace`} theme={theme} />
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
+        <TouchableOpacity activeOpacity={0.7} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => setSheet('month')}>
           <View style={[styles.row, { marginBottom: 16 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>This month</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>27 days left</AppText></View></View>
           <Progress label="Spent" value={formatMoney(budget.spentMonthUsd)} total={formatMoney0(budget.spendableMonthUsd)} pct={budget.monthPct} color={theme.primary} theme={theme} />
           <Progress label="Saved so far" value="$232" total={formatMoney0(budget.savingsTargetUsd)} pct={budget.savingsPct} color={theme.green} theme={theme} />
-        </View>
-        {topGoals.length > 0 ? <><SectionHeader title={topGoals.length > 1 ? 'Top goals' : 'Goal'} action="All goals" theme={theme} onAction={() => go('goals')} />{topGoals.map((goal) => <TouchableOpacity key={goal.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line, marginTop: 0, marginBottom: 10 }]} onPress={() => go('goals')}><View style={[styles.expenseRow, { borderBottomWidth: 0, paddingVertical: 0, marginBottom: 12 }]}><View style={[styles.bubble, { backgroundColor: `${theme.primary}1f` }]}><Glyph name={goal.icon} color={theme.primary} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text }]}>{goal.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{amountLabel(goal.perMonth, goal.cur)}/mo</AppText></View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(goal.saved, goal.cur)}</AppText></View><View style={[styles.track, { backgroundColor: theme.surface2 }]}><View style={[styles.fill, { width: `${Math.min(100, (goal.saved / goal.target) * 100)}%`, backgroundColor: theme.primary }]} /></View></TouchableOpacity>)}</> : null}
+          {model.swept ? <View style={[styles.sweep, { backgroundColor: `${theme.green}1f` }]}><MaterialIcons name="celebration" size={18} color={theme.green} /><AppText style={[styles.chipText, { color: theme.green, fontFamily: FONT.bold }]}>Savings goal reached this month</AppText></View> : budget.leftTodayUsd.amountMinor > 0 ? <TouchableOpacity style={[styles.sweep, { backgroundColor: theme.primaryWash }]} onPress={sweepLeftover}><MaterialIcons name="savings" size={18} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>Sweep {usd(budget.leftTodayUsd.amountMinor / 100)} leftover into savings</AppText></TouchableOpacity> : null}
+        </TouchableOpacity>
+        {topGoals.length > 0 ? <><SectionHeader title={topGoals.length > 1 ? 'Top goals' : 'Goal'} action="All goals" theme={theme} onAction={() => go('goals')} />{topGoals.map((goal) => <TouchableOpacity key={goal.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line, marginTop: 0, marginBottom: 10 }]} onPress={() => go('goals')}><View style={[styles.expenseRow, { borderBottomWidth: 0, paddingVertical: 0, marginBottom: 12 }]}><View style={[styles.bubble, { backgroundColor: `${theme.primary}1f` }]}><Glyph name={goal.icon} color={theme.primary} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text }]}>{goal.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{amountLabel(goal.perMonth, goal.cur)}/month</AppText>{monthsToGo(goal) ? <AppText style={[styles.itemSub, { color: theme.muted }]}>{monthsToGo(goal)}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(goal.saved, goal.cur)}</AppText></View><View style={[styles.track, { backgroundColor: theme.surface2 }]}><View style={[styles.fill, { width: `${Math.min(100, (goal.saved / goal.target) * 100)}%`, backgroundColor: theme.primary }]} /></View></TouchableOpacity>)}</> : null}
         <SectionHeader title="Coming up" action="+ Borrowed money" theme={theme} onAction={() => { setDrafts((current) => ({ ...current, iouPerson: '', iouAmount: '', iouDue: '', iouEditId: null })); setSheet('iou'); }} />
         {model.billReminders && !model.paidBills.loan ? <Upcoming icon="savings" color="#7c5cff" title="Loan repayment" subtitle={dueText(model.loanDue)} amount={usd(model.loan)} theme={theme} onPress={() => setSheet('loan')} onDone={() => markBillPaid('loan', 'Loan repayment')} /> : null}
         {model.billReminders && !model.paidBills.rent ? <Upcoming icon="receipt-long" color="#d98a00" title="Rent & utilities" subtitle={dueText(model.rentDue)} amount={usd(model.rent + model.utilities)} theme={theme} onPress={() => setSheet('fixed')} onDone={() => markBillPaid('rent', 'Rent & utilities')} /> : null}
@@ -857,7 +894,7 @@ export default function App() {
         <SectionHeader title="Today" action="Summary" theme={theme} onAction={() => go('insights')} />
         {model.expenses.map((expense) => {
           const cat = categoryFor(model.categories, expense.cat);
-          return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount) })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><View style={{ alignItems: 'flex-end' }}><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></View><TouchableOpacity onPress={() => deleteExpense(expense.id)} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="close" size={18} color={theme.faint} /></TouchableOpacity></TouchableOpacity>;
+          return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><View style={{ alignItems: 'flex-end' }}><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></View><TouchableOpacity onPress={() => deleteExpense(expense.id)} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="close" size={18} color={theme.faint} /></TouchableOpacity></TouchableOpacity>;
         })}
       </ScrollView>
     );
@@ -899,7 +936,7 @@ export default function App() {
         {renderTopBar(selectedCategory.label, undefined, 'categories', <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => openCatSheet(selectedCategory.key)}><MaterialIcons name="edit" size={19} color={theme.muted} /></TouchableOpacity>)}
         <View style={[styles.card, styles.row, { backgroundColor: theme.surface, borderColor: theme.line, marginBottom: 0 }]}><View style={{ flex: 1 }}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 6 }]}>Spent this month</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 32, marginTop: 0 }]}>{usd(selectedCategory.spentUsd)}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 2 }]}>of {usd0(selectedCategory.budgetUsd)} budget</AppText></View><View style={[styles.bubbleLarge, { backgroundColor: `${selectedCategory.color}22`, width: 56, height: 56, borderRadius: 18 }]}><Glyph name={selectedCategory.icon} size={30} color={selectedCategory.color} /></View></View>
         <SectionHeader title="Transactions" theme={theme} />
-        {txns.map((expense) => <View key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]}><View style={[styles.bubble, { backgroundColor: `${selectedCategory.color}22` }]}><Glyph name={selectedCategory.icon} color={selectedCategory.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.time}</AppText></View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></View>)}
+        {txns.map((expense) => <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${selectedCategory.color}22` }]}><Glyph name={selectedCategory.icon} color={selectedCategory.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>)}
       </ScrollView>
     );
   }
@@ -919,7 +956,7 @@ export default function App() {
             onPanResponderRelease: (_event, gesture) => finishGoalDrag(index, gesture.dy),
             onPanResponderTerminate: () => setDraggingGoal(null),
           });
-          return <Animated.View key={goal.id} onLayout={(event) => { goalHeights[goal.id] = event.nativeEvent.layout.height; }} style={[styles.card, { backgroundColor: theme.surface, borderColor: isDragging ? theme.primary : theme.line }, isDragging && { transform: [{ translateY: dragY }], zIndex: 20, elevation: 10, shadowColor: '#191c3a', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 12 } }]}><View style={[styles.expenseRow, { borderBottomWidth: 0, paddingVertical: 0 }]}>{model.goals.length > 1 ? <View {...pan.panHandlers} style={{ paddingVertical: 8, paddingRight: 6, marginLeft: -4 }}><MaterialIcons name="drag-indicator" size={22} color={theme.faint} /></View> : null}<View style={[styles.bubble, { backgroundColor: `${theme.primary}1f` }]}><Glyph name={goal.icon} color={theme.primary} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text }]}>{goal.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>Priority {index + 1} · {amountLabel(goal.perMonth, goal.cur)}/mo</AppText></View><TouchableOpacity onPress={() => updateModel((current) => ({ ...current, goals: current.goals.filter((item) => item.id !== goal.id) }))} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="delete" size={20} color={theme.faint} /></TouchableOpacity></View><View style={[styles.row, { marginTop: 14, marginBottom: 7 }]}><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 18, marginTop: 0 }]}>{amountLabel(goal.saved, goal.cur)}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>of {amountLabel(goal.target, goal.cur)} · {Math.round((goal.saved / goal.target) * 100)}%</AppText></View><View style={[styles.track, { backgroundColor: theme.surface2 }]}><View style={[styles.fill, { width: `${Math.min(100, (goal.saved / goal.target) * 100)}%`, backgroundColor: theme.primary }]} /></View>{goal.saved < goal.target && goal.perMonth > 0 ? <TouchableOpacity style={[styles.sweep, { backgroundColor: theme.primaryWash }]} onPress={() => addGoalContribution(goal.id)}><MaterialIcons name="savings" size={18} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>Add {amountLabel(goal.perMonth, goal.cur)} this month</AppText></TouchableOpacity> : <View style={[styles.goalBadge, { backgroundColor: `${theme.green}1f` }]}><MaterialIcons name="celebration" size={18} color={theme.green} /><AppText style={[styles.chipText, { color: theme.green, fontFamily: FONT.bold }]}>Goal reached 🎉</AppText></View>}</Animated.View>;
+          return <Animated.View key={goal.id} onLayout={(event) => { goalHeights[goal.id] = event.nativeEvent.layout.height; }} style={[styles.card, { backgroundColor: theme.surface, borderColor: isDragging ? theme.primary : theme.line }, isDragging && { transform: [{ translateY: dragY }], zIndex: 20, elevation: 10, shadowColor: '#191c3a', shadowOpacity: 0.25, shadowRadius: 20, shadowOffset: { width: 0, height: 12 } }]}><View style={[styles.expenseRow, { borderBottomWidth: 0, paddingVertical: 0 }]}>{model.goals.length > 1 ? <View {...pan.panHandlers} style={{ paddingVertical: 8, paddingRight: 6, marginLeft: -4 }}><MaterialIcons name="drag-indicator" size={22} color={theme.faint} /></View> : null}<View style={[styles.bubble, { backgroundColor: `${theme.primary}1f` }]}><Glyph name={goal.icon} color={theme.primary} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text }]}>{goal.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{amountLabel(goal.perMonth, goal.cur)}/month</AppText>{monthsToGo(goal) ? <AppText style={[styles.itemSub, { color: theme.muted }]}>{monthsToGo(goal)}</AppText> : null}</View><TouchableOpacity onPress={() => updateModel((current) => ({ ...current, goals: current.goals.filter((item) => item.id !== goal.id) }))} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="delete" size={20} color={theme.faint} /></TouchableOpacity></View><View style={[styles.row, { marginTop: 14, marginBottom: 7 }]}><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 18, marginTop: 0 }]}>{amountLabel(goal.saved, goal.cur)}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>of {amountLabel(goal.target, goal.cur)} · {Math.round((goal.saved / goal.target) * 100)}%</AppText></View><View style={[styles.track, { backgroundColor: theme.surface2 }]}><View style={[styles.fill, { width: `${Math.min(100, (goal.saved / goal.target) * 100)}%`, backgroundColor: theme.primary }]} /></View>{goal.saved < goal.target && goal.perMonth > 0 ? <TouchableOpacity style={[styles.sweep, { backgroundColor: theme.primaryWash }]} onPress={() => addGoalContribution(goal.id)}><MaterialIcons name="savings" size={18} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>Add {amountLabel(goal.perMonth, goal.cur)} this month</AppText></TouchableOpacity> : <View style={[styles.goalBadge, { backgroundColor: `${theme.green}1f` }]}><MaterialIcons name="celebration" size={18} color={theme.green} /><AppText style={[styles.chipText, { color: theme.green, fontFamily: FONT.bold }]}>Goal reached</AppText></View>}</Animated.View>;
         })}
         <TouchableOpacity style={[styles.dashed, { borderColor: theme.faint }]} onPress={() => setSheet('goal')}><MaterialIcons name="add" size={20} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>New goal</AppText></TouchableOpacity>
       </ScrollView>
@@ -935,7 +972,10 @@ export default function App() {
     const maxVal = Math.max(dailyBudget, ...week, 1) * 1.15;
     const budgetBottom = labelOffset + (dailyBudget / maxVal) * chartH;
     const heatGap = 5;
-    const heatSize = heatWidth > 0 ? (heatWidth - heatGap * 6) / 7 : 0;
+    // Floor so 7 cells + 6 gaps never exceed the measured row width (subpixel
+    // overflow made the grid wrap at 6 columns); space-between absorbs the slack.
+    const heatSize = heatWidth > 0 ? Math.floor((heatWidth - heatGap * 6) / 7) : 0;
+    const heatRows = Array.from({ length: Math.ceil(heatmap.length / 7) }, (_item, row) => heatmap.slice(row * 7, row * 7 + 7));
     const { spentMost, savedMost } = bestAndWorst(model.history, dailyBudget);
     const dayLabel = (index: number) => {
       const date = new Date();
@@ -948,7 +988,7 @@ export default function App() {
       return date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
     });
     return (
-      <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 40 }]} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {renderTopBar('Insights', 'Your end-of-day summary, all in one place.')}
         <View style={[styles.statusCard, { backgroundColor: budget.status === 'over' ? theme.red : theme.green }]}><View style={styles.statusPill}><MaterialIcons name="schedule" size={15} color="#fff" /><AppText style={styles.statusPillText}>End of day · today</AppText></View><AppText style={styles.statusHeadline}>{budget.status === 'over' ? 'A little over today — tomorrow adjusts for you.' : "You're under budget today — nice work."}</AppText><View style={styles.statRow}><Stat label="Spent today" value={formatMoney(budget.spentTodayUsd)} /><Stat label="Saved today" value={formatMoney(money(Math.max(budget.leftTodayUsd.amountMinor, 0), 'USD'))} /></View><View style={styles.tip}><MaterialIcons name="lightbulb" size={20} color="#fff" /><AppText style={styles.tipText}>Food is your top spend this week. Cooking one dinner at home could add ~$6 to savings.</AppText></View></View>
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><View style={[styles.row, { marginBottom: 14 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>This week</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>Daily budget {formatMoney(budget.dailyBudgetUsd)}</AppText></View></View>
@@ -959,7 +999,7 @@ export default function App() {
           </View>
         </View>
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><View style={[styles.row, { marginBottom: 12 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Spending activity</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>last 5 weeks</AppText></View></View>
-          <View style={styles.heat} onLayout={(event) => setHeatWidth(event.nativeEvent.layout.width)}>{heatSize > 0 ? heatmap.map((cell) => <TouchableOpacity key={cell.index} style={{ width: heatSize, height: heatSize, borderRadius: 5, backgroundColor: heatColor(cell.status, theme) }} onPress={() => showToast(`${cell.label} · ${usd(cell.spentUsdCents / 100)}`)} />) : null}</View>
+          <View onLayout={(event) => setHeatWidth(event.nativeEvent.layout.width)}>{heatSize > 0 ? heatRows.map((row, rowIndex) => <View key={rowIndex} style={{ flexDirection: 'row', justifyContent: row.length === 7 ? 'space-between' : 'flex-start', gap: row.length === 7 ? 0 : heatGap, marginTop: rowIndex === 0 ? 0 : heatGap }}>{row.map((cell) => <TouchableOpacity key={cell.index} style={{ width: heatSize, height: heatSize, borderRadius: 5, backgroundColor: heatColor(cell.status, theme) }} onPress={() => showToast(`${cell.label} · ${usd(cell.spentUsdCents / 100)}`)} />)}</View>) : null}</View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}><AppText style={[styles.itemSub, { color: theme.muted }]}>saved</AppText>{['#1f8a5b', '#a9dcc4', '#e0a63a', '#e0603a'].map((c) => <View key={c} style={{ width: 13, height: 13, borderRadius: 4, backgroundColor: c }} />)}<AppText style={[styles.itemSub, { color: theme.muted }]}>over</AppText></View>
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
             <View style={[styles.statMini, { backgroundColor: theme.surface2 }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 4, fontSize: 11 }]}>Spent most</AppText><AppText style={[styles.amount, { color: theme.text, textAlign: 'left' }]}>{spentMost >= 0 ? `${dayLabel(spentMost)} · ${usd(model.history[spentMost])}` : '—'}</AppText></View>
@@ -974,7 +1014,6 @@ export default function App() {
           </View>
           {exportOpen ? <View style={{ marginTop: 8, borderWidth: 1, borderColor: theme.line, borderRadius: 14, overflow: 'hidden' }}>{exportMonths.map((month) => <TouchableOpacity key={month} style={{ paddingVertical: 12, paddingHorizontal: 16, backgroundColor: month === exportMonth ? theme.primaryWash : theme.surface }} onPress={() => { setExportMonth(month); setExportOpen(false); }}><AppText style={{ fontFamily: FONT.semibold, fontSize: 14, color: month === exportMonth ? theme.primary : theme.text }}>{month}</AppText></TouchableOpacity>)}</View> : null}
         </View>
-        <TouchableOpacity style={[styles.button, { backgroundColor: theme.surface2, marginTop: 16 }]} onPress={previewNotification}><MaterialIcons name="notifications" size={20} color={theme.text} /><AppText style={[styles.buttonText, { color: theme.text }]}>Preview tonight's reminder</AppText></TouchableOpacity>
       </ScrollView>
     );
   }
@@ -984,7 +1023,7 @@ export default function App() {
       ['Monthly income', `${amountLabel(model.salary, model.salaryCur)} / month`, 'income', 'account-balance-wallet'],
       ['Rent & utilities', `${usd(model.rent + model.utilities)} · due ${ordinal(model.rentDue)}`, 'fixed', 'receipt-long'],
       ['Loan repayment', `${usd(model.loan)} · due ${ordinal(model.loanDue)}`, 'loan', 'savings'],
-      ['Budgeting method', model.method === 'balanced' ? 'Balanced (50/30/20)' : 'Saver (40/30/30)', 'method', 'pie-chart'],
+      ['Budgeting method', model.method === 'balanced' ? 'Balanced (50/30/20)' : model.method === 'saver' ? 'Saver (40/30/30)' : `Custom (${model.custom.needs}/${model.custom.wants}/${model.custom.save})`, 'method', 'pie-chart'],
       ['Currencies', `USD · KHR (1$ = ${khr(model.rate)})`, 'currency', 'currency-exchange'],
       ['Categories', `${model.categories.length} categories`, 'categories', 'grid-view'],
       ['Daily reminder', formatClock(model.notify), 'reminder', 'schedule'],
@@ -1009,23 +1048,35 @@ export default function App() {
             <View style={[styles.headerRow, { marginBottom: 4 }]}><AppText style={[styles.sheetTitle, { color: theme.text }]}>{sheet === 'category' && drafts.categoryEditKey ? 'Edit category' : sheetTitle(sheet)}</AppText><TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => setSheet(null)}><MaterialIcons name="close" size={20} color={theme.muted} /></TouchableOpacity></View>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
             {sheet === 'income' ? <View><SheetInput label="Monthly salary" value={String(model.salary)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, salary: Number(value) || 0 }))} /><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 7 }]}>{model.salaryCur === 'KHR' ? `≈ ${usd(model.salary / model.rate)}` : `≈ ${khr(model.salary * model.rate)}`}</AppText><AppText style={[styles.label, { color: theme.muted }]}>Currency</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{(['USD', 'KHR'] as Currency[]).map((cur) => <TouchableOpacity key={cur} style={[styles.segmentButton, model.salaryCur === cur && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, salaryCur: cur }))}><AppText style={[styles.segmentText, { color: model.salaryCur === cur ? theme.text : theme.muted }]}>{cur === 'USD' ? 'USD ($)' : 'KHR (៛)'}</AppText></TouchableOpacity>)}</View></View> : null}
-            {sheet === 'fixed' ? <View><SheetInput label="Rent" value={String(model.rent)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: Number(value) || 0 }))} /><SheetInput label="Utilities (monthly avg)" value={String(model.utilities)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, utilities: Number(value) || 0 }))} /><AppText style={[styles.label, { color: theme.muted }]}>Both due each month</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((d) => <TouchableOpacity key={d} style={[styles.segmentButton, model.rentDue === d && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, rentDue: d }))}><AppText style={[styles.segmentText, { color: model.rentDue === d ? theme.text : theme.muted }]}>{ordinal(d)}</AppText></TouchableOpacity>)}</View></View> : null}
-            {sheet === 'loan' ? <View><SheetInput label="Monthly repayment" value={String(model.loan)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: Number(value) || 0 }))} /><AppText style={[styles.label, { color: theme.muted }]}>Due each month</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((d) => <TouchableOpacity key={d} style={[styles.segmentButton, model.loanDue === d && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loanDue: d }))}><AppText style={[styles.segmentText, { color: model.loanDue === d ? theme.text : theme.muted }]}>{ordinal(d)}</AppText></TouchableOpacity>)}</View></View> : null}
-            {sheet === 'method' ? <View>{(['balanced', 'saver'] as BudgetMode[]).map((mode) => <TouchableOpacity key={mode} style={[styles.methodCard, { backgroundColor: model.method === mode ? theme.primaryWash : theme.surface, borderColor: model.method === mode ? theme.primary : theme.line }]} onPress={() => updateModel((current) => ({ ...current, method: mode }))}><AppText style={[styles.itemTitle, { color: theme.text }]}>{mode === 'balanced' ? 'Balanced · 50/30/20' : 'Saver · 40/30/30'}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 5 }]}>{mode === 'balanced' ? '50% Needs · 30% Wants · 20% Savings' : 'Tighter spending, faster savings'}</AppText></TouchableOpacity>)}</View> : null}
-            {sheet === 'currency' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Base currency</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{(['USD', 'KHR'] as Currency[]).map((cur) => <TouchableOpacity key={cur} style={[styles.segmentButton, model.salaryCur === cur && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, salaryCur: cur }))}><AppText style={[styles.segmentText, { color: model.salaryCur === cur ? theme.text : theme.muted }]}>{cur === 'USD' ? 'USD ($)' : 'KHR (៛)'}</AppText></TouchableOpacity>)}</View><SheetInput label="Conversion rate — KHR per $1" value={String(model.rate)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rate: Number(value) || RATE }))} /></View> : null}
-            {sheet === 'reminder' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Quick pick</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{([['8:00 PM', '20:00'], ['9:00 PM', '21:00'], ['10:00 PM', '22:00']] as const).map(([label, val]) => <TouchableOpacity key={val} style={[styles.segmentButton, model.notify === val && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, notify: val }))}><AppText style={[styles.segmentText, { color: model.notify === val ? theme.text : theme.muted }]}>{label}</AppText></TouchableOpacity>)}</View><AppText style={[styles.label, { color: theme.muted }]}>Or choose your own time</AppText><TouchableOpacity style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} onPress={() => setTimePickerOpen(true)}><AppText style={{ fontFamily: FONT.bold, fontSize: 18, color: theme.text }}>{formatClock(model.notify)}</AppText><MaterialIcons name="schedule" size={22} color={theme.muted} /></TouchableOpacity>{timePickerOpen ? <DateTimePicker value={notifyToDate(model.notify)} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_event, date) => { setTimePickerOpen(Platform.OS === 'ios'); if (date) updateModel((current) => ({ ...current, notify: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}` })); }} /> : null}</View> : null}
+            {sheet === 'fixed' ? <View><MoneyField label="Rent" initialAmount={model.rent} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: value }))} /><MoneyField label="Utilities (monthly avg)" initialAmount={model.utilities} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, utilities: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Both due each month</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((d) => <TouchableOpacity key={d} style={[styles.segmentButton, model.rentDue === d && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, rentDue: d }))}><AppText style={[styles.segmentText, { color: model.rentDue === d ? theme.text : theme.muted }]}>{ordinal(d)}</AppText></TouchableOpacity>)}</View></View> : null}
+            {sheet === 'loan' ? <View><MoneyField label="Monthly repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Due each month</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((d) => <TouchableOpacity key={d} style={[styles.segmentButton, model.loanDue === d && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loanDue: d }))}><AppText style={[styles.segmentText, { color: model.loanDue === d ? theme.text : theme.muted }]}>{ordinal(d)}</AppText></TouchableOpacity>)}</View></View> : null}
+            {sheet === 'method' ? <View>
+              {(['balanced', 'saver', 'custom'] as BudgetMode[]).map((mode) => <TouchableOpacity key={mode} style={[styles.methodCard, { backgroundColor: model.method === mode ? theme.primaryWash : theme.surface, borderColor: model.method === mode ? theme.primary : theme.line }]} onPress={() => updateModel((current) => ({ ...current, method: mode }))}><AppText style={[styles.itemTitle, { color: theme.text }]}>{mode === 'balanced' ? 'Balanced · 50/30/20' : mode === 'saver' ? 'Saver · 40/30/30' : `Custom · ${model.custom.needs}/${model.custom.wants}/${model.custom.save}`}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 5 }]}>{mode === 'balanced' ? '50% Needs · 30% Wants · 20% Savings' : mode === 'saver' ? 'Tighter spending, faster savings' : 'Design your own Needs/Wants/Savings split'}</AppText></TouchableOpacity>)}
+              {model.method === 'custom' ? <View>
+                <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+                  {(['needs', 'wants', 'save'] as const).map((part) => <View key={part} style={{ flex: 1 }}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 6, fontSize: 11 }]}>{part === 'save' ? 'Savings' : part} %</AppText><TextInput style={[styles.input, { padding: 13, fontSize: 16, backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} keyboardType="number-pad" value={String(model.custom[part])} onChangeText={(value) => updateModel((current) => ({ ...current, custom: { ...current.custom, [part]: Math.max(0, Math.min(100, Number(value) || 0)) } }))} /></View>)}
+                </View>
+                {model.custom.needs + model.custom.wants + model.custom.save !== 100 ? <AppText style={[styles.itemSub, { color: theme.red, marginTop: 8 }]}>Adds up to {model.custom.needs + model.custom.wants + model.custom.save}% — adjust so it totals 100%.</AppText> : <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 8 }]}>Savings come out first, Needs cover fixed costs, Wants set your daily budget.</AppText>}
+              </View> : null}
+            </View> : null}
+            {sheet === 'currency' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Base currency — used for the home budget display</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{(['USD', 'KHR'] as Currency[]).map((cur) => <TouchableOpacity key={cur} style={[styles.segmentButton, model.baseCur === cur && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, baseCur: cur }))}><AppText style={[styles.segmentText, { color: model.baseCur === cur ? theme.text : theme.muted }]}>{cur === 'USD' ? 'USD ($)' : 'KHR (៛)'}</AppText></TouchableOpacity>)}</View><SheetInput label="Conversion rate — KHR per $1" value={String(model.rate)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rate: Number(value) || RATE }))} /></View> : null}
+            {sheet === 'reminder' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Quick pick</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{([['8:00 PM', '20:00'], ['9:00 PM', '21:00'], ['10:00 PM', '22:00']] as const).map(([label, val]) => <TouchableOpacity key={val} style={[styles.segmentButton, model.notify === val && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, notify: val }))}><AppText style={[styles.segmentText, { color: model.notify === val ? theme.text : theme.muted }]}>{label}</AppText></TouchableOpacity>)}</View><AppText style={[styles.label, { color: theme.muted }]}>Or choose your own time</AppText><TouchableOpacity style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} onPress={() => setTimePickerOpen(true)}><AppText style={{ fontFamily: FONT.bold, fontSize: 18, color: theme.text }}>{formatClock(model.notify)}</AppText><MaterialIcons name="schedule" size={22} color={theme.muted} /></TouchableOpacity>{timePickerOpen ? <DateTimePicker value={notifyToDate(model.notify)} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_event, date) => { setTimePickerOpen(Platform.OS === 'ios'); if (date) updateModel((current) => ({ ...current, notify: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}` })); }} /> : null}<TouchableOpacity style={[styles.button, { backgroundColor: theme.surface2, marginTop: 16, minHeight: 48 }]} onPress={previewNotification}><MaterialIcons name="notifications" size={18} color={theme.text} /><AppText style={[styles.buttonText, { color: theme.text, fontSize: 14 }]}>Send a preview now</AppText></TouchableOpacity></View> : null}
             {sheet === 'category' ? <View>
               <View style={[styles.headerRow, { marginTop: 14, gap: 12 }]}><View style={[styles.bubbleLarge, { backgroundColor: `${drafts.categoryColor}22` }]}><Glyph name={drafts.categoryIcon} size={27} color={drafts.categoryColor} /></View><TextInput style={[styles.input, { flex: 1, fontSize: 18, backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} placeholder="Category name" placeholderTextColor={theme.faint} value={drafts.categoryName} onChangeText={(value) => setDrafts((current) => ({ ...current, categoryName: value }))} /></View>
-              <SheetInput label="Monthly budget (USD)" value={drafts.categoryBudget} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, categoryBudget: value }))} />
+              <MoneyField label="Monthly budget" initialAmount={Number(drafts.categoryBudget) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, categoryBudget: value ? String(value) : '' }))} />
               <AppText style={[styles.label, { color: theme.muted }]}>Icon</AppText>
               <View style={styles.pickWrap}>{ICON_SET.map((ic) => { const on = drafts.categoryIcon === ic; return <TouchableOpacity key={ic} style={[styles.iconPick, { borderColor: on ? drafts.categoryColor : theme.line, backgroundColor: on ? `${drafts.categoryColor}22` : theme.surface }]} onPress={() => setDrafts((current) => ({ ...current, categoryIcon: ic }))}><Glyph name={ic} size={22} color={on ? drafts.categoryColor : theme.muted} /></TouchableOpacity>; })}</View>
               <AppText style={[styles.label, { color: theme.muted }]}>Color</AppText>
               <View style={styles.pickWrap}>{PALETTE.map((color) => <TouchableOpacity key={color} style={[styles.swatch, { backgroundColor: color, borderColor: drafts.categoryColor === color ? theme.text : 'transparent' }]} onPress={() => setDrafts((current) => ({ ...current, categoryColor: color }))} />)}</View>
               <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveCategory}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>{drafts.categoryEditKey ? 'Save changes' : 'Add category'}</AppText></TouchableOpacity>
             </View> : null}
-            {sheet === 'entry' && selectedExpense ? <View><SheetInput label="Amount" value={drafts.iouAmount} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouAmount: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Category</AppText><View style={styles.chipRow}>{model.categories.map((cat) => { const on = drafts.selectedCat === cat.key; return <TouchableOpacity key={cat.key} style={[styles.chip, { borderColor: on ? cat.color : theme.line, backgroundColor: on ? cat.color : theme.surface }]} onPress={() => setDrafts((current) => ({ ...current, selectedCat: cat.key }))}><Glyph name={cat.icon} size={18} color={on ? '#fff' : cat.color} /><AppText style={[styles.chipText, { color: on ? '#fff' : theme.muted }]}>{cat.label}</AppText></TouchableOpacity>; })}</View><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveEntry}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Save entry</AppText></TouchableOpacity></View> : null}
-            {sheet === 'iou' ? <View><SheetInput label="Who did you borrow from?" value={drafts.iouPerson} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouPerson: value }))} /><SheetInput label="Amount" value={drafts.iouAmount} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouAmount: value }))} /><SheetInput label="Pay back by" value={drafts.iouDue} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouDue: value }))} /><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveIou}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Save</AppText></TouchableOpacity></View> : null}
-            {sheet === 'goal' ? <View><SheetInput label="What are you saving for?" value={drafts.goalName} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalName: value }))} /><SheetInput label="Target amount" value={drafts.goalTarget} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalTarget: value }))} /><SheetInput label="Save per month" value={drafts.goalPer} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalPer: value }))} /><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveGoal}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Create goal</AppText></TouchableOpacity></View> : null}
+            {sheet === 'entry' && selectedExpense ? <View><MoneyField label="Amount" initialAmount={Number(drafts.iouAmount) || 0} initialCur={drafts.entryCur} rate={model.rate} theme={theme} onChange={(_usd, amount, cur) => setDrafts((current) => ({ ...current, iouAmount: amount ? String(amount) : '', entryCur: cur }))} /><SheetInput label="Remark (optional)" value={drafts.addNote} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, addNote: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Category</AppText><View style={styles.chipRow}>{model.categories.map((cat) => { const on = drafts.selectedCat === cat.key; return <TouchableOpacity key={cat.key} style={[styles.chip, { borderColor: on ? cat.color : theme.line, backgroundColor: on ? cat.color : theme.surface }]} onPress={() => setDrafts((current) => ({ ...current, selectedCat: cat.key }))}><Glyph name={cat.icon} size={18} color={on ? '#fff' : cat.color} /><AppText style={[styles.chipText, { color: on ? '#fff' : theme.muted }]}>{cat.label}</AppText></TouchableOpacity>; })}</View><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveEntry}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Save entry</AppText></TouchableOpacity></View> : null}
+            {sheet === 'iou' ? <View><SheetInput label="Who did you borrow from?" value={drafts.iouPerson} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouPerson: value }))} /><MoneyField label="Amount" initialAmount={Number(drafts.iouAmount) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouAmount: value ? String(value) : '' }))} /><SheetInput label="Pay back by" value={drafts.iouDue} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouDue: value }))} /><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveIou}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Save</AppText></TouchableOpacity></View> : null}
+            {sheet === 'goal' ? <View><SheetInput label="What are you saving for?" value={drafts.goalName} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalName: value }))} /><MoneyField label="Target amount" initialAmount={Number(drafts.goalTarget) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalTarget: value ? String(value) : '' }))} /><MoneyField label="Save per month" initialAmount={Number(drafts.goalPer) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalPer: value ? String(value) : '' }))} /><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveGoal}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Create goal</AppText></TouchableOpacity></View> : null}
+            {sheet === 'month' ? <View>
+              <View style={[styles.row, { marginTop: 10 }]}><AppText style={[styles.itemSub, { color: theme.muted }]}>Spent {formatMoney(budget.spentMonthUsd)} of {formatMoney0(budget.spendableMonthUsd)}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{model.expenses.length} transaction{model.expenses.length === 1 ? '' : 's'}</AppText></View>
+              {model.expenses.map((expense) => { const cat = categoryFor(model.categories, expense.cat); return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>; })}
+            </View> : null}
             {sheet === 'day' ? <View><View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0 }]}>Spent</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 26 }]}>{usd(model.history[drafts.selectedDay] ?? 0)}</AppText></View></View> : null}
             {sheet && ['income', 'fixed', 'loan', 'method', 'currency', 'reminder'].includes(sheet) ? <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={() => setSheet(null)}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Done</AppText></TouchableOpacity> : null}
             </ScrollView>
@@ -1051,9 +1102,19 @@ export default function App() {
     screen = (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.page }]}>
         <StatusBar style={model.dark ? 'light' : 'dark'} />
-        <View style={{ flex: 1 }}>{content}</View>
+        <View key={model.screen} style={{ flex: 1 }}>{content}</View>
         {['home', 'categories', 'insights', 'settings'].includes(model.screen) ? <BottomNav screen={model.screen} theme={theme} onGo={go} /> : null}
         {toast ? <View style={[styles.toast, { backgroundColor: theme.text }]}><MaterialIcons name="check-circle" size={18} color={theme.green} /><AppText style={[styles.toastText, { color: theme.page }]}>{toast}</AppText></View> : null}
+        <Modal visible={celebrate !== null} transparent animationType="fade" onRequestClose={() => setCelebrate(null)}>
+          <View style={styles.celebrateScrim}>
+            <View style={[styles.celebrateCard, { backgroundColor: theme.surface }]}>
+              <View style={[styles.celebrateIcon, { backgroundColor: theme.primaryWash }]}><MaterialIcons name="celebration" size={38} color={theme.primary} /></View>
+              <AppText style={[styles.celebrateTitle, { color: theme.text }]}>{celebrate?.title}</AppText>
+              <AppText style={[styles.celebrateBody, { color: theme.muted }]}>{celebrate?.body}</AppText>
+              <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, alignSelf: 'stretch', marginTop: 22 }]} onPress={() => setCelebrate(null)}><AppText style={styles.buttonText}>Nice!</AppText></TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
         {renderSheet()}
       </SafeAreaView>
     );
@@ -1088,6 +1149,41 @@ function Stat({ label, value }: { label: string; value: string }) {
 
 function SheetInput({ label, value, theme, onChange }: { label: string; value: string; theme: typeof LIGHT; onChange: (value: string) => void }) {
   return <View><AppText style={[styles.label, { color: theme.muted }]}>{label}</AppText><TextInput style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} value={value} onChangeText={onChange} placeholderTextColor={theme.faint} keyboardType={label.toLowerCase().includes('amount') || label.toLowerCase().includes('salary') || label.toLowerCase().includes('budget') || label.includes('$') || label.includes('Rent') || label.includes('Utilities') || label.includes('Loan') ? 'decimal-pad' : 'default'} /></View>;
+}
+
+// Amount input with a per-field USD/KHR toggle and a live conversion line, so
+// bills paid in riel (rent, loan, utilities…) can be typed in riel directly.
+// Reports the USD equivalent plus the raw amount/currency the user entered.
+function MoneyField({ label, initialAmount, initialCur = 'USD', rate, theme, onChange, right }: { label: string; initialAmount: number; initialCur?: Currency; rate: number; theme: typeof LIGHT; onChange: (usd: number, amount: number, cur: Currency) => void; right?: ReactNode }) {
+  const [cur, setCur] = useState<Currency>(initialCur);
+  const [text, setText] = useState(() => (initialAmount ? String(initialAmount) : ''));
+  const amount = Number(text) || 0;
+
+  function report(nextAmount: number, nextCur: Currency) {
+    onChange(nextCur === 'KHR' ? nextAmount / rate : nextAmount, nextAmount, nextCur);
+  }
+
+  function switchCur(next: Currency) {
+    if (next === cur) return;
+    const converted = amount > 0 ? (next === 'KHR' ? Math.round(amount * rate) : Math.round((amount / rate) * 100) / 100) : 0;
+    setCur(next);
+    setText(converted ? String(converted) : '');
+    report(converted, next);
+  }
+
+  return (
+    <View>
+      <AppText style={[styles.label, { color: theme.muted }]}>{label}</AppText>
+      <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+        <TextInput style={[styles.input, { flex: 1, backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} keyboardType="decimal-pad" value={text} placeholder="0" placeholderTextColor={theme.faint} onChangeText={(value) => { setText(value); report(Number(value) || 0, cur); }} />
+        <View style={[styles.curToggle, { backgroundColor: theme.surface2 }]}>
+          {(['USD', 'KHR'] as Currency[]).map((c) => <TouchableOpacity key={c} style={[styles.curToggleButton, cur === c && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => switchCur(c)}><AppText style={[styles.segmentText, { fontSize: 15, color: cur === c ? theme.text : theme.muted }]}>{c === 'USD' ? '$' : '៛'}</AppText></TouchableOpacity>)}
+        </View>
+        {right ?? null}
+      </View>
+      {amount > 0 ? <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 6 }]}>≈ {cur === 'KHR' ? usd(amount / rate) : khr(amount * rate)}</AppText> : null}
+    </View>
+  );
 }
 
 const NAV_ITEMS: readonly (readonly [Screen, IconName, string])[] = [
@@ -1126,6 +1222,7 @@ function sheetTitle(sheet: Sheet) {
   if (sheet === 'iou') return 'Borrowed money';
   if (sheet === 'goal') return 'New goal';
   if (sheet === 'day') return 'Day view';
+  if (sheet === 'month') return 'This month';
   return '';
 }
 
@@ -1139,7 +1236,7 @@ const CARD_SHADOW = {
 
 const styles = StyleSheet.create({
   safe: { flex: 1 },
-  scroll: { padding: 20, paddingTop: 8, paddingBottom: 130 },
+  scroll: { padding: 20, paddingTop: 8, paddingBottom: 56 },
   headerRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 12 },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, marginTop: 4, marginBottom: 18 },
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
@@ -1210,9 +1307,7 @@ const styles = StyleSheet.create({
   barCol: { flex: 1, alignItems: 'center', justifyContent: 'flex-end', gap: 6 },
   bar: { width: '100%', borderTopLeftRadius: 8, borderTopRightRadius: 8, borderBottomLeftRadius: 3, borderBottomRightRadius: 3 },
   barDay: { fontFamily: FONT.semibold, fontSize: 10 },
-  heat: { flexDirection: 'row', flexWrap: 'wrap', gap: 5 },
   statMini: { flex: 1, borderRadius: 14, padding: 12 },
-  heatCell: { width: '13.0%', aspectRatio: 1, borderRadius: 5 },
   settingsRow: { flexDirection: 'row', alignItems: 'center', gap: 14, paddingVertical: 16, borderBottomWidth: 1 },
   settingsIcon: { width: 40, height: 40, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   dots: { flexDirection: 'row', alignSelf: 'center', gap: 6, marginVertical: 14 },
@@ -1231,10 +1326,17 @@ const styles = StyleSheet.create({
   toast: { position: 'absolute', alignSelf: 'center', bottom: 100, flexDirection: 'row', alignItems: 'center', gap: 8, borderRadius: 14, paddingVertical: 12, paddingHorizontal: 18, shadowColor: '#000', shadowOpacity: 0.35, shadowRadius: 24, shadowOffset: { width: 0, height: 12 }, elevation: 8 },
   toastText: { fontFamily: FONT.bold, fontSize: 13 },
   scrim: { flex: 1, backgroundColor: 'rgba(10,10,20,.42)', justifyContent: 'flex-end' },
+  celebrateScrim: { flex: 1, backgroundColor: 'rgba(10,10,20,.45)', alignItems: 'center', justifyContent: 'center', padding: 24 },
+  celebrateCard: { alignSelf: 'stretch', borderRadius: 28, padding: 28, alignItems: 'center', shadowColor: '#191c3a', shadowOpacity: 0.25, shadowRadius: 30, shadowOffset: { width: 0, height: 16 }, elevation: 10 },
+  celebrateIcon: { width: 76, height: 76, borderRadius: 38, alignItems: 'center', justifyContent: 'center', marginBottom: 16 },
+  celebrateTitle: { fontFamily: FONT.extrabold, fontSize: 24, letterSpacing: -0.4, textAlign: 'center' },
+  celebrateBody: { fontFamily: FONT.medium, fontSize: 15, lineHeight: 22, textAlign: 'center', marginTop: 10 },
   sheet: { borderTopLeftRadius: 28, borderTopRightRadius: 28, padding: 20, paddingBottom: 28, maxHeight: '88%' },
   grab: { width: 40, height: 4, borderRadius: 99, alignSelf: 'center', marginBottom: 14, opacity: 0.55 },
   sheetTitle: { fontSize: 19, fontFamily: FONT.extrabold, letterSpacing: -0.2 },
   swatch: { width: 38, height: 38, borderRadius: 12, borderWidth: 3, borderColor: 'transparent' },
+  curToggle: { flexDirection: 'row', borderRadius: 14, padding: 4, gap: 2 },
+  curToggleButton: { width: 42, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
   iconPick: { width: 46, height: 46, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   pickWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });

@@ -1,7 +1,7 @@
 import { ExchangeRate, Money, convertMoney, money, percent, toUsdCents } from './money';
 
 export type BudgetMethod = Readonly<{
-  key: 'balanced' | 'saver';
+  key: 'balanced' | 'saver' | 'custom';
   needsPct: number;
   wantsPct: number;
   savePct: number;
