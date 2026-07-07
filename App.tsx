@@ -6,6 +6,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
+  BackHandler,
   AppState,
   Image,
   Modal,
@@ -67,6 +68,7 @@ export default function App() {
   const [draggingGoal, setDraggingGoal] = useState<string | null>(null);
   const goalHeights = useRef<Record<string, number>>({}).current;
   const dragY = useRef(new Animated.Value(0)).current;
+  const lastBackPressAt = useRef(0);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportMonth, setExportMonth] = useState(() => isoMonthFromDay(isoDayFromDate(new Date())));
   const [fontsLoaded] = useFonts({
@@ -167,6 +169,41 @@ export default function App() {
     if (screen === 'add') setDrafts((current) => ({ ...current, expenseDate: today }));
     updateModel((current) => ({ ...current, screen }));
   }
+
+  useEffect(() => {
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (celebrate) {
+        setCelebrate(null);
+        return true;
+      }
+      if (sheet) {
+        setSheet(null);
+        return true;
+      }
+      if (!model.onboarded || model.screen === 'onboarding') {
+        if (model.onbStep > 1) {
+          updateModel((current) => ({ ...current, onbStep: current.onbStep - 1 }));
+        } else {
+          showToast('Finish setup to start budgeting');
+        }
+        return true;
+      }
+      if (model.screen === 'detail') {
+        updateModel((current) => ({ ...current, screen: 'categories' }));
+        return true;
+      }
+      if (model.screen !== 'home') {
+        updateModel((current) => ({ ...current, screen: 'home' }));
+        return true;
+      }
+      const now = Date.now();
+      if (now - lastBackPressAt.current < 1800) return false;
+      lastBackPressAt.current = now;
+      showToast('Press back again to exit');
+      return true;
+    });
+    return () => subscription.remove();
+  }, [celebrate, sheet, model.onboarded, model.screen, model.onbStep]);
 
   function openEntrySheet(expense: Expense) {
     setDrafts((current) => ({
