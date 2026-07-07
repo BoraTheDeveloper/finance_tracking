@@ -12,6 +12,19 @@ export const PALETTE = [
   '#f59e0b', '#b06a4a', '#8a8d99', '#6d7a8c', '#d45b5b',
 ];
 
+export const DEFAULT_APP_CATEGORIES: AppModel['categories'] = [
+  { key: 'food', label: 'Food & drinks', icon: 'restaurant', color: '#ef8b4f', spentUsd: 0, budgetUsd: 120 },
+  { key: 'transport', label: 'Transport', icon: 'directions-bus', color: '#3ba6d4', spentUsd: 0, budgetUsd: 60 },
+  { key: 'bills', label: 'Bills & utilities', icon: 'receipt-long', color: '#d98a00', spentUsd: 0, budgetUsd: 100 },
+  { key: 'shopping', label: 'Shopping', icon: 'shopping-bag', color: '#e05a8a', spentUsd: 0, budgetUsd: 80 },
+  { key: 'ent', label: 'Entertainment', icon: 'movie', color: '#7c5cff', spentUsd: 0, budgetUsd: 50 },
+  { key: 'health', label: 'Health', icon: 'medical-services', color: '#1f9d6b', spentUsd: 0, budgetUsd: 40 },
+  { key: 'education', label: 'Education', icon: 'school', color: '#5b8def', spentUsd: 0, budgetUsd: 30 },
+  { key: 'family', label: 'Family & home', icon: 'home', color: '#5aa84a', spentUsd: 0, budgetUsd: 50 },
+  { key: 'travel', label: 'Travel', icon: 'flight', color: '#9b6dff', spentUsd: 0, budgetUsd: 50 },
+  { key: 'other', label: 'Other', icon: 'category', color: '#8a8d99', spentUsd: 0, budgetUsd: 30 },
+];
+
 export const INITIAL_MODEL: AppModel = {
   onboarded: false,
   onbStep: 1,
@@ -31,7 +44,8 @@ export const INITIAL_MODEL: AppModel = {
   swept: false,
   notify: '21:00',
   billReminders: true,
-  categories: [],
+  defaultCategoriesSeeded: true,
+  categories: DEFAULT_APP_CATEGORIES,
   expenses: [],
   goals: [],
   ious: [],

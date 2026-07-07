@@ -22,7 +22,8 @@
         "backgroundColor": "#14171C",
         "foregroundImage": "./assets/luy-khnom-android-icon-foreground-flat.png"
       },
-      "predictiveBackGestureEnabled": false
+      "predictiveBackGestureEnabled": false,
+      "softwareKeyboardLayoutMode": "resize"
     },
     "web": {
       "favicon": "./assets/luy-khnom-favicon-flat.png"

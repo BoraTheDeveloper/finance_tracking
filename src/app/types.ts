@@ -61,6 +61,7 @@ export type AppModel = {
   swept: boolean;
   notify: string;
   billReminders: boolean;
+  defaultCategoriesSeeded: boolean;
   categories: Category[];
   expenses: Expense[];
   goals: Goal[];

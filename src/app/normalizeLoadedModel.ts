@@ -32,11 +32,14 @@ export function normalizeLoadedModel(state: PersistedAppModel | undefined, today
   const rawRolloverUsd = raw.rolloverUsd;
   const lastActiveDay = typeof rawLastActiveDay === 'string' && isIsoDay(rawLastActiveDay) ? rawLastActiveDay : today;
   const lastActiveMonth = typeof rawLastActiveMonth === 'string' && isIsoMonth(rawLastActiveMonth) ? rawLastActiveMonth : todayMonth;
+  const rawCategories = raw.categories;
+  const shouldSeedDefaultCategories = raw.defaultCategoriesSeeded !== true && (!rawCategories || rawCategories.length === 0);
   let next: AppModel = {
     ...INITIAL_MODEL,
     ...raw,
     custom: { ...INITIAL_MODEL.custom, ...(raw.custom ?? {}) },
-    categories: raw.categories ?? INITIAL_MODEL.categories,
+    defaultCategoriesSeeded: true,
+    categories: shouldSeedDefaultCategories ? INITIAL_MODEL.categories : rawCategories ?? INITIAL_MODEL.categories,
     expenses,
     goals: raw.goals ?? INITIAL_MODEL.goals,
     ious: raw.ious ?? INITIAL_MODEL.ious,

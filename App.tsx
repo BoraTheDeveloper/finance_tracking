@@ -9,8 +9,10 @@ import {
   BackHandler,
   AppState,
   Image,
+  KeyboardAvoidingView,
   Modal,
   PanResponder,
+  Platform,
   Pressable,
   ScrollView,
   TextInput,
@@ -546,8 +548,9 @@ export default function App() {
     const step = model.onbStep;
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.page }]}>
-        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 140 }]}>
-          <View style={[styles.headerRow, { marginTop: 4, marginBottom: 20 }]}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'} contentContainerStyle={[styles.scroll, { paddingBottom: 180 }]}>
+            <View style={[styles.headerRow, { marginTop: 4, marginBottom: 20 }]}>
             <View style={{ width: 40 }}>{step > 1 ? <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => updateModel((current) => ({ ...current, onbStep: current.onbStep - 1 }))}><MaterialIcons name="arrow-back" size={20} color={theme.text} /></TouchableOpacity> : null}</View>
             <View style={styles.dots}>
               {[1, 2, 3].map((item) => <View key={item} style={[styles.dot, { backgroundColor: item <= step ? theme.primary : theme.surface2, width: item <= step ? 22 : 8 }]} />)}
@@ -624,13 +627,14 @@ export default function App() {
               />
             </View>
           ) : null}
-        </ScrollView>
-        <View style={[styles.footer, { backgroundColor: theme.page, borderColor: theme.line }]}>
-          <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={() => updateModel((current) => current.onbStep < 3 ? { ...current, onbStep: current.onbStep + 1 } : { ...current, onboarded: true, screen: 'home' })}>
-            <AppText style={styles.buttonText}>{step < 3 ? 'Continue' : 'Start budgeting'}</AppText>
-            <MaterialIcons name="arrow-forward" size={20} color="#fff" />
-          </TouchableOpacity>
-        </View>
+          </ScrollView>
+          <View style={[styles.footer, { backgroundColor: theme.page, borderColor: theme.line }]}>
+            <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={() => updateModel((current) => current.onbStep < 3 ? { ...current, onbStep: current.onbStep + 1 } : { ...current, onboarded: true, screen: 'home' })}>
+              <AppText style={styles.buttonText}>{step < 3 ? 'Continue' : 'Start budgeting'}</AppText>
+              <MaterialIcons name="arrow-forward" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     );
   }
@@ -687,7 +691,8 @@ export default function App() {
     const hasValidDate = isIsoDay(drafts.expenseDate.trim());
     const canSave = hasAmount && hasValidDate;
     return (
-      <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 160 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}>
         {renderTopBar('Add expense', undefined, 'home')}
         <TextInput style={[styles.addInput, { backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} placeholder="Try: netflix, 10$  or  food, 1000 riels" placeholderTextColor={theme.faint} value={drafts.addText} onChangeText={(value) => { const next = parseExpenseText(value); setDrafts((current) => ({ ...current, addText: value, selectedCat: next.categoryKey })); }} />
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
@@ -703,7 +708,8 @@ export default function App() {
         <AppText style={[styles.label, { color: theme.muted }]}>Note (optional)</AppText>
         <TextInput style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, color: theme.text, fontFamily: FONT.semibold, fontSize: 16 }]} placeholder="e.g. team lunch" placeholderTextColor={theme.faint} value={drafts.addNote} onChangeText={(value) => setDrafts((current) => ({ ...current, addNote: value }))} />
         <TouchableOpacity disabled={!canSave} style={[styles.button, { backgroundColor: theme.primary, opacity: canSave ? 1 : 0.35, marginTop: 24 }]} onPress={addExpense}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Add {parsedAmount ? formatMoney(parsedAmount) : ''}</AppText></TouchableOpacity>
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     );
   }
 
@@ -837,11 +843,12 @@ export default function App() {
   function renderSheet() {
     return (
       <Modal visible={sheet !== null} transparent animationType="slide" onRequestClose={() => setSheet(null)}>
-        <Pressable style={styles.scrim} onPress={() => setSheet(null)}>
-          <Pressable style={[styles.sheet, { backgroundColor: theme.page }]}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+          <Pressable style={styles.scrim} onPress={() => setSheet(null)}>
+            <Pressable style={[styles.sheet, { backgroundColor: theme.page }]}>
             <View style={[styles.grab, { backgroundColor: theme.faint }]} />
             <View style={[styles.headerRow, { marginBottom: 4 }]}><AppText style={[styles.sheetTitle, { color: theme.text }]}>{sheet === 'category' && drafts.categoryEditKey ? 'Edit category' : sheetTitle(sheet)}</AppText><TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => setSheet(null)}><MaterialIcons name="close" size={20} color={theme.muted} /></TouchableOpacity></View>
-            <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'} contentContainerStyle={{ paddingBottom: 48 }}>
             {sheet === 'income' ? <View><SheetInput label="Monthly salary" value={String(model.salary)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, salary: Number(value) || 0 }))} /><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 7 }]}>{model.salaryCur === 'KHR' ? `≈ ${usd(model.salary / model.rate)}` : `≈ ${khr(model.salary * model.rate)}`}</AppText><AppText style={[styles.label, { color: theme.muted }]}>Currency</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{(['USD', 'KHR'] as Currency[]).map((cur) => <TouchableOpacity key={cur} style={[styles.segmentButton, model.salaryCur === cur && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, salaryCur: cur }))}><AppText style={[styles.segmentText, { color: model.salaryCur === cur ? theme.text : theme.muted }]}>{cur === 'USD' ? 'USD ($)' : 'KHR (៛)'}</AppText></TouchableOpacity>)}</View></View> : null}
             {sheet === 'fixed' ? <View><MoneyField label="Rent" initialAmount={model.rent} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: value }))} /><MoneyField label="Utilities (monthly avg)" initialAmount={model.utilities} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, utilities: value }))} /><DueDayPicker label="Both due each month" value={model.rentDue} theme={theme} onChange={(day) => updateModel((current) => ({ ...current, rentDue: day }))} /></View> : null}
             {sheet === 'loan' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Loan</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}><TouchableOpacity style={[styles.segmentButton, model.loan <= 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: 0, paidBills: { ...current.paidBills, loan: true } }))}><AppText style={[styles.segmentText, { color: model.loan <= 0 ? theme.text : theme.muted }]}>No loan</AppText></TouchableOpacity><TouchableOpacity style={[styles.segmentButton, model.loan > 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: current.loan > 0 ? current.loan : 50, paidBills: { ...current.paidBills, loan: false } }))}><AppText style={[styles.segmentText, { color: model.loan > 0 ? theme.text : theme.muted }]}>I have a loan</AppText></TouchableOpacity></View>{model.loan > 0 ? <><MoneyField label="Monthly repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} /><DueDayPicker label="Due each month" value={model.loanDue} theme={theme} onChange={(day) => updateModel((current) => ({ ...current, loanDue: day }))} /></> : <AppText style={[styles.help, { color: theme.muted }]}>No loan payment will show in Coming up.</AppText>}</View> : null}
@@ -867,9 +874,10 @@ export default function App() {
             </View> : null}
             {sheet === 'day' ? <View><View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0 }]}>Spent on {selectedDayDate}</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 26 }]}>{usd(chartHistory[selectedDayIndex] ?? 0)}</AppText></View>{selectedDayExpenses.map((expense) => { const cat = categoryFor(model.categories, expense.cat); return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => openEntrySheet(expense)}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>; })}{selectedDayExpenses.length === 0 ? <EmptyState icon="receipt-long" title="No transactions this day" body="Expenses saved for this date will show up here." theme={theme} /> : null}</View> : null}
             {sheet && ['income', 'fixed', 'loan', 'method', 'currency', 'reminder'].includes(sheet) ? <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={() => setSheet(null)}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Done</AppText></TouchableOpacity> : null}
-            </ScrollView>
+              </ScrollView>
+            </Pressable>
           </Pressable>
-        </Pressable>
+        </KeyboardAvoidingView>
       </Modal>
     );
   }

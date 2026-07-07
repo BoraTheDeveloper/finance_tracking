@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { BALANCED, summarizeBudget } from '../src/domain/budget';
 import { parseExpenseText } from '../src/domain/expenseParser';
 import { DEFAULT_CATEGORIES, INITIAL_TODAY } from '../src/domain/fixtures';
+import { INITIAL_MODEL } from '../src/app/initialState';
 import { convertMoney, formatMoney, money, parseMoney } from '../src/domain/money';
 
 describe('money', () => {
@@ -13,6 +14,27 @@ describe('money', () => {
   it('converts KHR/USD deterministically at 4100', () => {
     expect(convertMoney(money(4000, 'KHR'), 'USD', { khrPerUsd: 4100 })).toEqual(money(98, 'USD'));
     expect(convertMoney(money(1000, 'USD'), 'KHR', { khrPerUsd: 4100 })).toEqual(money(41000, 'KHR'));
+  });
+});
+
+describe('initial model', () => {
+  it('seeds popular categories without demo user data', () => {
+    expect(INITIAL_MODEL.categories.map((category) => category.key)).toEqual([
+      'food',
+      'transport',
+      'bills',
+      'shopping',
+      'ent',
+      'health',
+      'education',
+      'family',
+      'travel',
+      'other',
+    ]);
+    expect(INITIAL_MODEL.expenses).toEqual([]);
+    expect(INITIAL_MODEL.goals).toEqual([]);
+    expect(INITIAL_MODEL.ious).toEqual([]);
+    expect(INITIAL_MODEL.history).toEqual([]);
   });
 });
 
