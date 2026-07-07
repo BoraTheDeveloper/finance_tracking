@@ -7,6 +7,7 @@ import { useEffect, useRef, useState, type ReactNode } from 'react';
 import {
   Animated,
   AppState,
+  Image,
   Modal,
   PanResponder,
   Platform,
@@ -135,6 +136,7 @@ type Drafts = {
   selectedCat: string;
   selectedExpenseId: string | null;
   entryCur: Currency;
+  expenseDate: string;
   selectedDay: number;
   categoryName: string;
   categoryBudget: string;
@@ -184,12 +186,12 @@ const INITIAL_MODEL: AppModel = {
   onbStep: 1,
   screen: 'onboarding',
   dark: false,
-  salary: 1200,
+  salary: 0,
   salaryCur: 'USD',
   rate: RATE,
-  rent: 350,
-  utilities: 35,
-  loan: 150,
+  rent: 0,
+  utilities: 0,
+  loan: 0,
   rentDue: 1,
   loanDue: 15,
   method: 'balanced',
@@ -198,23 +200,10 @@ const INITIAL_MODEL: AppModel = {
   swept: false,
   notify: '21:00',
   billReminders: true,
-  categories: [
-    { key: 'food', label: 'Food', icon: 'restaurant', color: '#ef8b4f', spentUsd: 23.5, budgetUsd: 140 },
-    { key: 'ent', label: 'Entertainment', icon: 'movie', color: '#7c5cff', spentUsd: 15, budgetUsd: 110 },
-    { key: 'transport', label: 'Transport', icon: 'directions-bus', color: '#3ba6d4', spentUsd: 4.18, budgetUsd: 50 },
-    { key: 'bills', label: 'Bills', icon: 'receipt-long', color: '#d98a00', spentUsd: 17, budgetUsd: 60 },
-    { key: 'shopping', label: 'Shopping', icon: 'shopping-bag', color: '#e05a8a', spentUsd: 10, budgetUsd: 60 },
-    { key: 'health', label: 'Health', icon: 'medical-services', color: '#1f9d6b', spentUsd: 5, budgetUsd: 40 },
-    { key: 'other', label: 'Other', icon: 'category', color: '#8a8d99', spentUsd: 0, budgetUsd: 25 },
-  ],
-  expenses: [
-    { id: 'seed-phone', name: 'Phone top-up', cat: 'bills', amount: 2, cur: 'USD', time: '6:05 PM', date: INITIAL_DAY },
-    { id: 'seed-lunch', name: 'Lunch', cat: 'food', amount: 3, cur: 'USD', time: '12:30 PM', date: INITIAL_DAY },
-    { id: 'seed-bus', name: 'Bus to work', cat: 'transport', amount: 4000, cur: 'KHR', time: '8:40 AM', date: INITIAL_DAY },
-    { id: 'seed-coffee', name: 'Morning coffee', cat: 'food', amount: 2.5, cur: 'USD', time: '8:15 AM', date: INITIAL_DAY },
-  ],
-  goals: [{ id: 'seed-goal', name: 'Malaysia trip', icon: 'flight', target: 600, saved: 180, perMonth: 100, cur: 'USD' }],
-  ious: [{ id: 'seed-iou', person: 'Sokha', amount: 25, cur: 'USD', due: 'early Aug' }],
+  categories: [],
+  expenses: [],
+  goals: [],
+  ious: [],
   history: [],
   rolloverUsd: 0,
   paidBills: {},
@@ -225,9 +214,10 @@ const INITIAL_MODEL: AppModel = {
 const INITIAL_DRAFTS: Drafts = {
   addText: '',
   addNote: '',
-  selectedCat: 'food',
+  selectedCat: '',
   selectedExpenseId: null,
   entryCur: 'USD',
+  expenseDate: INITIAL_DAY,
   selectedDay: 34,
   categoryName: '',
   categoryBudget: '50',
@@ -553,8 +543,17 @@ function monthsToGo(goal: Goal) {
   return `${months} month${months === 1 ? '' : 's'} to go`;
 }
 
+const UNCATEGORIZED_CATEGORY: Category = {
+  key: 'uncategorized',
+  label: 'Uncategorized',
+  icon: 'category',
+  color: '#8a8d99',
+  spentUsd: 0,
+  budgetUsd: 0,
+};
+
 function categoryFor(categories: Category[], key: string) {
-  return categories.find((category) => category.key === key) ?? categories[categories.length - 1];
+  return categories.find((category) => category.key === key) ?? UNCATEGORIZED_CATEGORY;
 }
 
 function csvEscape(value: unknown) {
@@ -682,6 +681,9 @@ export default function App() {
   const selectedExpense = model.expenses.find((expense) => expense.id === drafts.selectedExpenseId) ?? null;
   const chartHistory = [...model.history, budget.spentTodayUsd.amountMinor / 100].slice(-35);
   const heatmap = buildHeatmap(chartHistory, budget.dailyBudgetUsd.amountMinor / 100);
+  const selectedDayIndex = Math.max(0, Math.min(drafts.selectedDay, chartHistory.length - 1));
+  const selectedDayDate = isoDayFromDate(new Date(new Date().setDate(new Date().getDate() - (chartHistory.length - 1 - selectedDayIndex))));
+  const selectedDayExpenses = filterExpensesByDay(model.expenses, selectedDayDate);
 
   function showToast(message: string) {
     setToast(message);
@@ -693,32 +695,53 @@ export default function App() {
   }
 
   function go(screen: Screen) {
+    if (screen === 'add') setDrafts((current) => ({ ...current, expenseDate: today }));
     updateModel((current) => ({ ...current, screen }));
+  }
+
+  function openEntrySheet(expense: Expense) {
+    setDrafts((current) => ({
+      ...current,
+      selectedExpenseId: expense.id,
+      selectedCat: expense.cat,
+      iouAmount: String(expense.amount),
+      entryCur: expense.cur,
+      addNote: expense.note ?? '',
+      expenseDate: expense.date,
+    }));
+    setSheet('entry');
   }
 
   function addExpense() {
     if (!parsedAmount) return;
+    const expenseDate = drafts.expenseDate.trim();
+    if (!isIsoDay(expenseDate)) {
+      showToast(`Use a valid date like ${today}`);
+      return;
+    }
     const chosenKey = drafts.selectedCat || parsed.categoryKey;
     const category = categoryFor(model.categories, chosenKey);
+    const expenseCat = model.categories.some((item) => item.key === chosenKey) ? chosenKey : category.key;
     const amount = parsedAmount.currency === 'USD' ? parsedAmount.amountMinor / 100 : parsedAmount.amountMinor;
     const expense: Expense = {
       id: `expense-${Date.now()}`,
       name: parsed.label || category.label,
-      cat: chosenKey,
+      cat: expenseCat,
       amount,
       cur: parsedAmount.currency,
       time: nowTime(),
-      date: isoDayFromDate(new Date()),
+      date: expenseDate,
       note: drafts.addNote.trim() || undefined,
     };
     const usdValue = amountUsd(expense.amount, expense.cur, model.rate);
+    const adjustCurrentMonth = isoMonthFromDay(expense.date) === thisMonth;
     updateModel((current) => ({
       ...current,
       screen: 'home',
       expenses: [expense, ...current.expenses],
-      categories: current.categories.map((item) => (item.key === chosenKey ? { ...item, spentUsd: item.spentUsd + usdValue } : item)),
+      categories: adjustCurrentMonth ? current.categories.map((item) => (item.key === expenseCat ? { ...item, spentUsd: item.spentUsd + usdValue } : item)) : current.categories,
     }));
-    setDrafts((current) => ({ ...current, addText: '', addNote: '', selectedCat: 'food' }));
+    setDrafts((current) => ({ ...current, addText: '', addNote: '', selectedCat: '', expenseDate: today }));
     showToast(`Added ${amountLabel(expense.amount, expense.cur)}`);
   }
 
@@ -737,18 +760,25 @@ export default function App() {
 
   function saveEntry() {
     const amount = Number(drafts.iouAmount);
+    const expenseDate = drafts.expenseDate.trim();
     if (!selectedExpense || !Number.isFinite(amount) || amount <= 0) return;
+    if (!isIsoDay(expenseDate)) {
+      showToast(`Use a valid date like ${today}`);
+      return;
+    }
+    const nextCat = drafts.selectedCat || selectedExpense.cat;
     const oldUsd = amountUsd(selectedExpense.amount, selectedExpense.cur, model.rate);
     const newUsd = amountUsd(amount, drafts.entryCur, model.rate);
     const note = drafts.addNote.trim() || undefined;
-    const adjustCurrentMonth = isoMonthFromDay(selectedExpense.date) === thisMonth;
+    const oldCurrentMonth = isoMonthFromDay(selectedExpense.date) === thisMonth;
+    const newCurrentMonth = isoMonthFromDay(expenseDate) === thisMonth;
     updateModel((current) => ({
       ...current,
-      expenses: current.expenses.map((expense) => (expense.id === selectedExpense.id ? { ...expense, amount, cur: drafts.entryCur, note, cat: drafts.selectedCat || expense.cat } : expense)),
-      categories: adjustCurrentMonth ? current.categories.map((category) => {
+      expenses: current.expenses.map((expense) => (expense.id === selectedExpense.id ? { ...expense, amount, cur: drafts.entryCur, note, cat: nextCat, date: expenseDate } : expense)),
+      categories: oldCurrentMonth || newCurrentMonth ? current.categories.map((category) => {
         let spentUsd = category.spentUsd;
-        if (category.key === selectedExpense.cat) spentUsd -= oldUsd;
-        if (category.key === (drafts.selectedCat || selectedExpense.cat)) spentUsd += newUsd;
+        if (oldCurrentMonth && category.key === selectedExpense.cat) spentUsd -= oldUsd;
+        if (newCurrentMonth && category.key === nextCat) spentUsd += newUsd;
         return { ...category, spentUsd: Math.max(0, spentUsd) };
       }) : current.categories,
     }));
@@ -1019,7 +1049,7 @@ export default function App() {
             <View style={{ width: 40 }} />
           </View>
           {step === 1 ? <View style={[styles.brandRow, { marginBottom: 4 }]}>
-            <View style={[styles.logo, { backgroundColor: theme.primary }]}><AppText style={styles.logoText}>៛</AppText></View>
+            <Image source={require('./assets/luy-khnom-favicon-flat.png')} style={styles.logo} resizeMode="contain" />
             <AppText style={[styles.brandName, { color: theme.text }]}>Luy Khnom</AppText>
           </View> : null}
           {step === 1 ? (
@@ -1040,20 +1070,25 @@ export default function App() {
               <AppText style={[styles.heroTitle, { color: theme.text }]}>Your fixed monthly costs</AppText>
               <AppText style={[styles.subtitle, { color: theme.muted }]}>Rent and loan come out first — these are your Needs.</AppText>
               <MoneyField label="Rent" initialAmount={model.rent} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: value }))} />
-              <AppText style={[styles.label, { color: theme.muted }]}>Rent due date</AppText>
-              <View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((day) => <TouchableOpacity key={day} style={[styles.segmentButton, model.rentDue === day && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, rentDue: day }))}><AppText style={[styles.segmentText, { color: model.rentDue === day ? theme.text : theme.muted }]}>{ordinal(day)}</AppText></TouchableOpacity>)}</View>
+              <DueDayPicker label="Rent due date" value={model.rentDue} theme={theme} onChange={(day) => updateModel((current) => ({ ...current, rentDue: day }))} />
               <MoneyField label="Utilities (monthly avg)" initialAmount={model.utilities} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, utilities: value }))} />
               <AppText style={[styles.label, { color: theme.muted }]}>Loan</AppText>
               <View style={[styles.segment, { backgroundColor: theme.surface2 }]}><TouchableOpacity style={[styles.segmentButton, model.loan <= 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: 0, paidBills: { ...current.paidBills, loan: true } }))}><AppText style={[styles.segmentText, { color: model.loan <= 0 ? theme.text : theme.muted }]}>No loan</AppText></TouchableOpacity><TouchableOpacity style={[styles.segmentButton, model.loan > 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: current.loan > 0 ? current.loan : 50, paidBills: { ...current.paidBills, loan: false } }))}><AppText style={[styles.segmentText, { color: model.loan > 0 ? theme.text : theme.muted }]}>I have a loan</AppText></TouchableOpacity></View>
-              {model.loan > 0 ? <><MoneyField label="Loan repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Loan due date</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((day) => <TouchableOpacity key={day} style={[styles.segmentButton, model.loanDue === day && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loanDue: day }))}><AppText style={[styles.segmentText, { color: model.loanDue === day ? theme.text : theme.muted }]}>{ordinal(day)}</AppText></TouchableOpacity>)}</View></> : <AppText style={[styles.help, { color: theme.muted }]}>No loan payment will show in Coming up.</AppText>}
+              {model.loan > 0 ? <><MoneyField label="Loan repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} /><DueDayPicker label="Loan due date" value={model.loanDue} theme={theme} onChange={(day) => updateModel((current) => ({ ...current, loanDue: day }))} /></> : <AppText style={[styles.help, { color: theme.muted }]}>No loan payment will show in Coming up.</AppText>}
               <View style={[styles.card, { backgroundColor: theme.primaryWash, borderColor: theme.primaryWash }, styles.row, { marginBottom: 0 }]}><AppText style={[styles.rowValue, { color: theme.text }]}>Fixed each month</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 18, marginTop: 0 }]}>{formatMoney0(budget.fixedUsd)}</AppText></View>
             </View>
           ) : null}
           {step === 3 ? (
             <View>
               <AppText style={[styles.heroTitle, { color: theme.text }]}>Pick a budgeting method</AppText>
-              <AppText style={[styles.subtitle, { color: theme.muted }]}>Based on the 50/30/20 rule — savings come first.</AppText>
-              {(['balanced', 'saver'] as BudgetMode[]).map((mode) => <TouchableOpacity key={mode} style={[styles.methodCard, { borderColor: model.method === mode ? theme.primary : theme.line, backgroundColor: model.method === mode ? theme.primaryWash : theme.surface }]} onPress={() => updateModel((current) => ({ ...current, method: mode }))}><View style={styles.row}><AppText style={[styles.itemTitle, { color: theme.text }]}>{mode === 'balanced' ? 'Balanced · 50/30/20' : 'Saver · 40/30/30'}</AppText>{mode === 'balanced' ? <View style={[styles.duePill, { backgroundColor: theme.primary }]}><AppText style={[styles.duePillText, { color: '#fff' }]}>Recommended</AppText></View> : null}</View><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 2 }]}>{mode === 'balanced' ? '50% Needs · 30% Wants · 20% Savings' : 'Tighter spending, faster savings'}</AppText></TouchableOpacity>)}
+              <AppText style={[styles.subtitle, { color: theme.muted }]}>Choose the split that fits your month — savings come first.</AppText>
+              <BudgetMethodPicker
+                method={model.method}
+                custom={model.custom}
+                theme={theme}
+                onSelect={(mode) => updateModel((current) => ({ ...current, method: mode }))}
+                onCustomChange={(part, value) => updateModel((current) => ({ ...current, custom: { ...current.custom, [part]: value } }))}
+              />
               <AppText style={[styles.label, { color: theme.muted }]}>Your plan</AppText>
               <View style={{ flexDirection: 'row', height: 14, borderRadius: 99, overflow: 'hidden' }}>
                 <View style={{ flex: method.needsPct, backgroundColor: theme.primary }} />
@@ -1074,7 +1109,13 @@ export default function App() {
                 <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 8 }]}>≈ <AppText style={{ fontFamily: FONT.bold, color: theme.text }}>{formatMoney0(budget.baseDailyUsd)}/day</AppText> across the month.</AppText>
               </View>
               <AppText style={[styles.label, { color: theme.muted }]}>Daily reminder</AppText>
-              <View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{([['8:00 PM', '20:00'], ['9:00 PM', '21:00'], ['10:00 PM', '22:00']] as const).map(([label, val]) => <TouchableOpacity key={val} style={[styles.segmentButton, model.notify === val && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, notify: val }))}><AppText style={[styles.segmentText, { color: model.notify === val ? theme.text : theme.muted }]}>{label}</AppText></TouchableOpacity>)}</View>
+              <ReminderTimePicker
+                value={model.notify}
+                theme={theme}
+                open={timePickerOpen}
+                onOpenChange={setTimePickerOpen}
+                onChange={(value) => updateModel((current) => ({ ...current, notify: value }))}
+              />
             </View>
           ) : null}
         </ScrollView>
@@ -1128,7 +1169,7 @@ export default function App() {
         <SectionHeader title="Today" action="Summary" theme={theme} onAction={() => go('insights')} />
         {todayExpenses.map((expense) => {
           const cat = categoryFor(model.categories, expense.cat);
-          return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><View style={{ alignItems: 'flex-end' }}><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></View><TouchableOpacity onPress={() => deleteExpense(expense.id)} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="close" size={18} color={theme.faint} /></TouchableOpacity></TouchableOpacity>;
+          return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => openEntrySheet(expense)}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText><TouchableOpacity onPress={() => deleteExpense(expense.id)} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="close" size={19} color={theme.faint} /></TouchableOpacity></TouchableOpacity>;
         })}
         {todayExpenses.length === 0 ? <EmptyState icon="edit-note" title="Start recording today" body="Tap + when you spend. Today's list stays quiet until there is something to track." theme={theme} /> : null}
       </ScrollView>
@@ -1137,6 +1178,8 @@ export default function App() {
 
   function renderAdd() {
     const hasAmount = Boolean(parsedAmount);
+    const hasValidDate = isIsoDay(drafts.expenseDate.trim());
+    const canSave = hasAmount && hasValidDate;
     return (
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
         {renderTopBar('Add expense', undefined, 'home')}
@@ -1147,9 +1190,13 @@ export default function App() {
           <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 16 }]}>Category — tap to change</AppText>
         </View>
         <View style={styles.chipRow}>{model.categories.map((cat) => { const on = drafts.selectedCat === cat.key; return <TouchableOpacity key={cat.key} style={[styles.chip, { borderColor: on ? cat.color : theme.line, backgroundColor: on ? cat.color : theme.surface }]} onPress={() => setDrafts((current) => ({ ...current, selectedCat: cat.key }))}><Glyph name={cat.icon} size={18} color={on ? '#fff' : cat.color} /><AppText style={[styles.chipText, { color: on ? '#fff' : theme.muted }]}>{cat.label}</AppText></TouchableOpacity>; })}</View>
+        {model.categories.length === 0 ? <EmptyState icon="category" title="No categories yet" body="You can still save this as Uncategorized, or add custom categories from Categories." theme={theme} /> : null}
+        <AppText style={[styles.label, { color: theme.muted }]}>Transaction date</AppText>
+        <TextInput style={[styles.input, { backgroundColor: theme.surface, borderColor: hasValidDate ? theme.line : theme.red, color: theme.text, fontFamily: FONT.semibold, fontSize: 16 }]} placeholder="YYYY-MM-DD" placeholderTextColor={theme.faint} value={drafts.expenseDate} onChangeText={(value) => setDrafts((current) => ({ ...current, expenseDate: value }))} autoCapitalize="none" autoCorrect={false} />
+        {!hasValidDate ? <AppText style={[styles.itemSub, { color: theme.red, marginTop: 7 }]}>Use YYYY-MM-DD, for example {today}.</AppText> : null}
         <AppText style={[styles.label, { color: theme.muted }]}>Note (optional)</AppText>
         <TextInput style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, color: theme.text, fontFamily: FONT.semibold, fontSize: 16 }]} placeholder="e.g. team lunch" placeholderTextColor={theme.faint} value={drafts.addNote} onChangeText={(value) => setDrafts((current) => ({ ...current, addNote: value }))} />
-        <TouchableOpacity disabled={!hasAmount} style={[styles.button, { backgroundColor: theme.primary, opacity: hasAmount ? 1 : 0.35, marginTop: 24 }]} onPress={addExpense}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Add {parsedAmount ? formatMoney(parsedAmount) : ''}</AppText></TouchableOpacity>
+        <TouchableOpacity disabled={!canSave} style={[styles.button, { backgroundColor: theme.primary, opacity: canSave ? 1 : 0.35, marginTop: 24 }]} onPress={addExpense}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Add {parsedAmount ? formatMoney(parsedAmount) : ''}</AppText></TouchableOpacity>
       </ScrollView>
     );
   }
@@ -1172,7 +1219,7 @@ export default function App() {
         {renderTopBar(selectedCategory.label, undefined, 'categories', <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => openCatSheet(selectedCategory.key)}><MaterialIcons name="edit" size={19} color={theme.muted} /></TouchableOpacity>)}
         <View style={[styles.card, styles.row, { backgroundColor: theme.surface, borderColor: theme.line, marginBottom: 0 }]}><View style={{ flex: 1 }}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 6 }]}>Spent this month</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 32, marginTop: 0 }]}>{usd(categoryMonthSpentUsd(selectedCategory.key))}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 2 }]}>of {usd0(selectedCategory.budgetUsd)} budget</AppText></View><View style={[styles.bubbleLarge, { backgroundColor: `${selectedCategory.color}22`, width: 56, height: 56, borderRadius: 18 }]}><Glyph name={selectedCategory.icon} size={30} color={selectedCategory.color} /></View></View>
         <SectionHeader title="Transactions" theme={theme} />
-        {txns.map((expense) => <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${selectedCategory.color}22` }]}><Glyph name={selectedCategory.icon} color={selectedCategory.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.date} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>)}
+        {txns.map((expense) => <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => openEntrySheet(expense)}><View style={[styles.bubble, { backgroundColor: `${selectedCategory.color}22` }]}><Glyph name={selectedCategory.icon} color={selectedCategory.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.date} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>)}
         {txns.length === 0 ? <EmptyState icon="receipt-long" title="No transactions yet" body="Expenses in this category will show up here after you record them." theme={theme} /> : null}
       </ScrollView>
     );
@@ -1239,7 +1286,7 @@ export default function App() {
           </View>
         </View>
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><View style={[styles.row, { marginBottom: 12 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Spending activity</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>last 5 weeks</AppText></View></View>
-          <View onLayout={(event) => setHeatWidth(event.nativeEvent.layout.width)}>{heatSize > 0 ? heatRows.map((row, rowIndex) => <View key={rowIndex} style={{ flexDirection: 'row', justifyContent: row.length === 7 ? 'space-between' : 'flex-start', gap: row.length === 7 ? 0 : heatGap, marginTop: rowIndex === 0 ? 0 : heatGap }}>{row.map((cell) => <TouchableOpacity key={cell.index} style={{ width: heatSize, height: heatSize, borderRadius: 5, backgroundColor: heatColor(cell.status, theme) }} onPress={() => showToast(`${cell.label} · ${usd(cell.spentUsdCents / 100)}`)} />)}</View>) : null}</View>
+          <View onLayout={(event) => setHeatWidth(event.nativeEvent.layout.width)}>{heatSize > 0 ? heatRows.map((row, rowIndex) => <View key={rowIndex} style={{ flexDirection: 'row', justifyContent: row.length === 7 ? 'space-between' : 'flex-start', gap: row.length === 7 ? 0 : heatGap, marginTop: rowIndex === 0 ? 0 : heatGap }}>{row.map((cell) => <TouchableOpacity key={cell.index} style={{ width: heatSize, height: heatSize, borderRadius: 5, backgroundColor: heatColor(cell.status, theme) }} onPress={() => { setDrafts((current) => ({ ...current, selectedDay: cell.index })); setSheet('day'); }} />)}</View>) : null}</View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}><AppText style={[styles.itemSub, { color: theme.muted }]}>saved</AppText>{[theme.heat.savedHigh, theme.heat.near, theme.heat.over, theme.heat.overHigh].map((c) => <View key={c} style={{ width: 13, height: 13, borderRadius: 4, backgroundColor: c }} />)}<AppText style={[styles.itemSub, { color: theme.muted }]}>over</AppText></View>
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
             <View style={[styles.statMini, { backgroundColor: theme.surface2 }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 4, fontSize: 11 }]}>Spent most</AppText><AppText style={[styles.amount, { color: theme.text, textAlign: 'left' }]}>{spentMost >= 0 ? `${dayLabel(spentMost)} · ${usd(chartHistory[spentMost])}` : '—'}</AppText></View>
@@ -1261,8 +1308,8 @@ export default function App() {
   function renderSettings() {
     const rows: readonly [string, string, Sheet | 'categories', IconName][] = [
       ['Monthly income', `${amountLabel(model.salary, model.salaryCur)} / month`, 'income', 'account-balance-wallet'],
-      ['Rent & utilities', `${usd(model.rent + model.utilities)} · due ${ordinal(model.rentDue)}`, 'fixed', 'receipt-long'],
-      ['Loan repayment', `${usd(model.loan)} · due ${ordinal(model.loanDue)}`, 'loan', 'savings'],
+      ['Rent & utilities', model.rent + model.utilities > 0 ? `${usd(model.rent + model.utilities)} · due ${ordinal(model.rentDue)}` : 'Not set', 'fixed', 'receipt-long'],
+      ['Loan repayment', model.loan > 0 ? `${usd(model.loan)} · due ${ordinal(model.loanDue)}` : 'No loan', 'loan', 'savings'],
       ['Budgeting method', model.method === 'balanced' ? 'Balanced (50/30/20)' : model.method === 'saver' ? 'Saver (40/30/30)' : `Custom (${model.custom.needs}/${model.custom.wants}/${model.custom.save})`, 'method', 'pie-chart'],
       ['Currencies', `USD · KHR (1$ = ${khr(model.rate)})`, 'currency', 'currency-exchange'],
       ['Categories', `${model.categories.length} categories`, 'categories', 'grid-view'],
@@ -1276,7 +1323,7 @@ export default function App() {
         <TouchableOpacity style={[styles.settingsRow, { borderColor: theme.line }]} onPress={() => updateModel((current) => ({ ...current, dark: !current.dark }))}><View style={[styles.settingsIcon, { backgroundColor: theme.surface2 }]}><MaterialIcons name={model.dark ? 'dark-mode' : 'light-mode'} size={21} color={theme.muted} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Appearance</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{model.dark ? 'Dark mode' : 'Light mode'}</AppText></View><MaterialIcons name={model.dark ? 'toggle-on' : 'toggle-off'} size={30} color={model.dark ? theme.primary : theme.faint} /></TouchableOpacity>
         <TouchableOpacity style={[styles.settingsRow, { borderColor: theme.line }]} onPress={exportJsonBackup}><View style={[styles.settingsIcon, { backgroundColor: theme.surface2 }]}><MaterialIcons name="file-download" size={21} color={theme.muted} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Export JSON backup</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>Save a full restorable copy of this device</AppText></View><MaterialIcons name="ios-share" size={22} color={theme.faint} /></TouchableOpacity>
         <TouchableOpacity style={[styles.settingsRow, { borderColor: theme.line }]} onPress={importJsonBackup}><View style={[styles.settingsIcon, { backgroundColor: theme.surface2 }]}><MaterialIcons name="file-upload" size={21} color={theme.muted} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Import JSON backup</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>Restore from a Luy Khnom backup file</AppText></View><MaterialIcons name="chevron-right" size={22} color={theme.faint} /></TouchableOpacity>
-        <View style={{ alignItems: 'center', marginTop: 32, gap: 6, opacity: 0.7 }}><View style={styles.brandRow}><View style={[styles.logo, { backgroundColor: theme.primary, width: 26, height: 26, borderRadius: 9 }]}><AppText style={[styles.logoText, { fontSize: 14 }]}>៛</AppText></View><AppText style={[styles.brandName, { color: theme.text, fontSize: 14 }]}>Luy Khnom</AppText></View><AppText style={[styles.itemSub, { color: theme.muted }]}>Spend calm · v1.0</AppText></View>
+        <View style={{ alignItems: 'center', marginTop: 32, gap: 6, opacity: 0.7 }}><View style={styles.brandRow}><Image source={require('./assets/luy-khnom-favicon-flat.png')} style={styles.footerLogoImage} resizeMode="contain" /><AppText style={[styles.brandName, { color: theme.text, fontSize: 14 }]}>Luy Khnom</AppText></View><AppText style={[styles.itemSub, { color: theme.muted }]}>Spend calm · v1.0</AppText></View>
       </ScrollView>
     );
   }
@@ -1290,19 +1337,11 @@ export default function App() {
             <View style={[styles.headerRow, { marginBottom: 4 }]}><AppText style={[styles.sheetTitle, { color: theme.text }]}>{sheet === 'category' && drafts.categoryEditKey ? 'Edit category' : sheetTitle(sheet)}</AppText><TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => setSheet(null)}><MaterialIcons name="close" size={20} color={theme.muted} /></TouchableOpacity></View>
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 8 }}>
             {sheet === 'income' ? <View><SheetInput label="Monthly salary" value={String(model.salary)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, salary: Number(value) || 0 }))} /><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 7 }]}>{model.salaryCur === 'KHR' ? `≈ ${usd(model.salary / model.rate)}` : `≈ ${khr(model.salary * model.rate)}`}</AppText><AppText style={[styles.label, { color: theme.muted }]}>Currency</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{(['USD', 'KHR'] as Currency[]).map((cur) => <TouchableOpacity key={cur} style={[styles.segmentButton, model.salaryCur === cur && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, salaryCur: cur }))}><AppText style={[styles.segmentText, { color: model.salaryCur === cur ? theme.text : theme.muted }]}>{cur === 'USD' ? 'USD ($)' : 'KHR (៛)'}</AppText></TouchableOpacity>)}</View></View> : null}
-            {sheet === 'fixed' ? <View><MoneyField label="Rent" initialAmount={model.rent} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: value }))} /><MoneyField label="Utilities (monthly avg)" initialAmount={model.utilities} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, utilities: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Both due each month</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((d) => <TouchableOpacity key={d} style={[styles.segmentButton, model.rentDue === d && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, rentDue: d }))}><AppText style={[styles.segmentText, { color: model.rentDue === d ? theme.text : theme.muted }]}>{ordinal(d)}</AppText></TouchableOpacity>)}</View></View> : null}
-            {sheet === 'loan' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Loan</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}><TouchableOpacity style={[styles.segmentButton, model.loan <= 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: 0, paidBills: { ...current.paidBills, loan: true } }))}><AppText style={[styles.segmentText, { color: model.loan <= 0 ? theme.text : theme.muted }]}>No loan</AppText></TouchableOpacity><TouchableOpacity style={[styles.segmentButton, model.loan > 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: current.loan > 0 ? current.loan : 50, paidBills: { ...current.paidBills, loan: false } }))}><AppText style={[styles.segmentText, { color: model.loan > 0 ? theme.text : theme.muted }]}>I have a loan</AppText></TouchableOpacity></View>{model.loan > 0 ? <><MoneyField label="Monthly repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Due each month</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{[1, 5, 15, 25].map((d) => <TouchableOpacity key={d} style={[styles.segmentButton, model.loanDue === d && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loanDue: d }))}><AppText style={[styles.segmentText, { color: model.loanDue === d ? theme.text : theme.muted }]}>{ordinal(d)}</AppText></TouchableOpacity>)}</View></> : <AppText style={[styles.help, { color: theme.muted }]}>No loan payment will show in Coming up.</AppText>}</View> : null}
-            {sheet === 'method' ? <View>
-              {(['balanced', 'saver', 'custom'] as BudgetMode[]).map((mode) => <TouchableOpacity key={mode} style={[styles.methodCard, { backgroundColor: model.method === mode ? theme.primaryWash : theme.surface, borderColor: model.method === mode ? theme.primary : theme.line }]} onPress={() => updateModel((current) => ({ ...current, method: mode }))}><AppText style={[styles.itemTitle, { color: theme.text }]}>{mode === 'balanced' ? 'Balanced · 50/30/20' : mode === 'saver' ? 'Saver · 40/30/30' : `Custom · ${model.custom.needs}/${model.custom.wants}/${model.custom.save}`}</AppText><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 5 }]}>{mode === 'balanced' ? '50% Needs · 30% Wants · 20% Savings' : mode === 'saver' ? 'Tighter spending, faster savings' : 'Design your own Needs/Wants/Savings split'}</AppText></TouchableOpacity>)}
-              {model.method === 'custom' ? <View>
-                <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
-                  {(['needs', 'wants', 'save'] as const).map((part) => <View key={part} style={{ flex: 1 }}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 6, fontSize: 11 }]}>{part === 'save' ? 'Savings' : part} %</AppText><TextInput style={[styles.input, { padding: 13, fontSize: 16, backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} keyboardType="number-pad" value={String(model.custom[part])} onChangeText={(value) => updateModel((current) => ({ ...current, custom: { ...current.custom, [part]: Math.max(0, Math.min(100, Number(value) || 0)) } }))} /></View>)}
-                </View>
-                {model.custom.needs + model.custom.wants + model.custom.save !== 100 ? <AppText style={[styles.itemSub, { color: theme.red, marginTop: 8 }]}>Adds up to {model.custom.needs + model.custom.wants + model.custom.save}% — adjust so it totals 100%.</AppText> : <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 8 }]}>Savings come out first, Needs cover fixed costs, Wants set your daily budget.</AppText>}
-              </View> : null}
-            </View> : null}
+            {sheet === 'fixed' ? <View><MoneyField label="Rent" initialAmount={model.rent} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: value }))} /><MoneyField label="Utilities (monthly avg)" initialAmount={model.utilities} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, utilities: value }))} /><DueDayPicker label="Both due each month" value={model.rentDue} theme={theme} onChange={(day) => updateModel((current) => ({ ...current, rentDue: day }))} /></View> : null}
+            {sheet === 'loan' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Loan</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}><TouchableOpacity style={[styles.segmentButton, model.loan <= 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: 0, paidBills: { ...current.paidBills, loan: true } }))}><AppText style={[styles.segmentText, { color: model.loan <= 0 ? theme.text : theme.muted }]}>No loan</AppText></TouchableOpacity><TouchableOpacity style={[styles.segmentButton, model.loan > 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: current.loan > 0 ? current.loan : 50, paidBills: { ...current.paidBills, loan: false } }))}><AppText style={[styles.segmentText, { color: model.loan > 0 ? theme.text : theme.muted }]}>I have a loan</AppText></TouchableOpacity></View>{model.loan > 0 ? <><MoneyField label="Monthly repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} /><DueDayPicker label="Due each month" value={model.loanDue} theme={theme} onChange={(day) => updateModel((current) => ({ ...current, loanDue: day }))} /></> : <AppText style={[styles.help, { color: theme.muted }]}>No loan payment will show in Coming up.</AppText>}</View> : null}
+            {sheet === 'method' ? <BudgetMethodPicker method={model.method} custom={model.custom} theme={theme} onSelect={(mode) => updateModel((current) => ({ ...current, method: mode }))} onCustomChange={(part, value) => updateModel((current) => ({ ...current, custom: { ...current.custom, [part]: value } }))} /> : null}
             {sheet === 'currency' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Base currency — used for the home budget display</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{(['USD', 'KHR'] as Currency[]).map((cur) => <TouchableOpacity key={cur} style={[styles.segmentButton, model.baseCur === cur && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, baseCur: cur }))}><AppText style={[styles.segmentText, { color: model.baseCur === cur ? theme.text : theme.muted }]}>{cur === 'USD' ? 'USD ($)' : 'KHR (៛)'}</AppText></TouchableOpacity>)}</View><SheetInput label="Conversion rate — KHR per $1" value={String(model.rate)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rate: Number(value) || RATE }))} /></View> : null}
-            {sheet === 'reminder' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Quick pick</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{([['8:00 PM', '20:00'], ['9:00 PM', '21:00'], ['10:00 PM', '22:00']] as const).map(([label, val]) => <TouchableOpacity key={val} style={[styles.segmentButton, model.notify === val && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, notify: val }))}><AppText style={[styles.segmentText, { color: model.notify === val ? theme.text : theme.muted }]}>{label}</AppText></TouchableOpacity>)}</View><AppText style={[styles.label, { color: theme.muted }]}>Or choose your own time</AppText><TouchableOpacity style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} onPress={() => setTimePickerOpen(true)}><AppText style={{ fontFamily: FONT.bold, fontSize: 18, color: theme.text }}>{formatClock(model.notify)}</AppText><MaterialIcons name="schedule" size={22} color={theme.muted} /></TouchableOpacity>{timePickerOpen ? <DateTimePicker value={notifyToDate(model.notify)} mode="time" display={Platform.OS === 'ios' ? 'spinner' : 'default'} onChange={(_event, date) => { setTimePickerOpen(Platform.OS === 'ios'); if (date) updateModel((current) => ({ ...current, notify: `${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}` })); }} /> : null}<TouchableOpacity style={[styles.button, { backgroundColor: theme.surface2, marginTop: 16, minHeight: 48 }]} onPress={previewNotification}><MaterialIcons name="notifications" size={18} color={theme.text} /><AppText style={[styles.buttonText, { color: theme.text, fontSize: 14 }]}>Send a preview now</AppText></TouchableOpacity></View> : null}
+            {sheet === 'reminder' ? <ReminderTimePicker value={model.notify} theme={theme} open={timePickerOpen} onOpenChange={setTimePickerOpen} onChange={(value) => updateModel((current) => ({ ...current, notify: value }))} onPreview={previewNotification} /> : null}
             {sheet === 'category' ? <View>
               <View style={[styles.headerRow, { marginTop: 14, gap: 12 }]}><View style={[styles.bubbleLarge, { backgroundColor: `${drafts.categoryColor}22` }]}><Glyph name={drafts.categoryIcon} size={27} color={drafts.categoryColor} /></View><TextInput style={[styles.input, { flex: 1, fontSize: 18, backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} placeholder="Category name" placeholderTextColor={theme.faint} value={drafts.categoryName} onChangeText={(value) => setDrafts((current) => ({ ...current, categoryName: value }))} /></View>
               <MoneyField label="Monthly budget" initialAmount={Number(drafts.categoryBudget) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, categoryBudget: value ? String(value) : '' }))} />
@@ -1312,15 +1351,15 @@ export default function App() {
               <View style={styles.pickWrap}>{PALETTE.map((color) => <TouchableOpacity key={color} style={[styles.swatch, { backgroundColor: color, borderColor: drafts.categoryColor === color ? theme.text : 'transparent' }]} onPress={() => setDrafts((current) => ({ ...current, categoryColor: color }))} />)}</View>
               <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveCategory}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>{drafts.categoryEditKey ? 'Save changes' : 'Add category'}</AppText></TouchableOpacity>
             </View> : null}
-            {sheet === 'entry' && selectedExpense ? <View><MoneyField label="Amount" initialAmount={Number(drafts.iouAmount) || 0} initialCur={drafts.entryCur} rate={model.rate} theme={theme} onChange={(_usd, amount, cur) => setDrafts((current) => ({ ...current, iouAmount: amount ? String(amount) : '', entryCur: cur }))} /><SheetInput label="Remark (optional)" value={drafts.addNote} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, addNote: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Category</AppText><View style={styles.chipRow}>{model.categories.map((cat) => { const on = drafts.selectedCat === cat.key; return <TouchableOpacity key={cat.key} style={[styles.chip, { borderColor: on ? cat.color : theme.line, backgroundColor: on ? cat.color : theme.surface }]} onPress={() => setDrafts((current) => ({ ...current, selectedCat: cat.key }))}><Glyph name={cat.icon} size={18} color={on ? '#fff' : cat.color} /><AppText style={[styles.chipText, { color: on ? '#fff' : theme.muted }]}>{cat.label}</AppText></TouchableOpacity>; })}</View><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveEntry}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Save entry</AppText></TouchableOpacity></View> : null}
+            {sheet === 'entry' && selectedExpense ? <View><MoneyField label="Amount" initialAmount={Number(drafts.iouAmount) || 0} initialCur={drafts.entryCur} rate={model.rate} theme={theme} onChange={(_usd, amount, cur) => setDrafts((current) => ({ ...current, iouAmount: amount ? String(amount) : '', entryCur: cur }))} /><SheetInput label="Transaction date (YYYY-MM-DD)" value={drafts.expenseDate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, expenseDate: value }))} />{!isIsoDay(drafts.expenseDate.trim()) ? <AppText style={[styles.itemSub, { color: theme.red, marginTop: 7 }]}>Use YYYY-MM-DD, for example {today}.</AppText> : null}<SheetInput label="Remark (optional)" value={drafts.addNote} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, addNote: value }))} /><AppText style={[styles.label, { color: theme.muted }]}>Category</AppText><View style={styles.chipRow}>{model.categories.map((cat) => { const on = drafts.selectedCat === cat.key; return <TouchableOpacity key={cat.key} style={[styles.chip, { borderColor: on ? cat.color : theme.line, backgroundColor: on ? cat.color : theme.surface }]} onPress={() => setDrafts((current) => ({ ...current, selectedCat: cat.key }))}><Glyph name={cat.icon} size={18} color={on ? '#fff' : cat.color} /><AppText style={[styles.chipText, { color: on ? '#fff' : theme.muted }]}>{cat.label}</AppText></TouchableOpacity>; })}</View><TouchableOpacity disabled={!isIsoDay(drafts.expenseDate.trim())} style={[styles.button, { backgroundColor: theme.primary, opacity: isIsoDay(drafts.expenseDate.trim()) ? 1 : 0.35, marginTop: 22 }]} onPress={saveEntry}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Save entry</AppText></TouchableOpacity></View> : null}
             {sheet === 'iou' ? <View><SheetInput label="Who did you borrow from?" value={drafts.iouPerson} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouPerson: value }))} /><MoneyField label="Amount" initialAmount={Number(drafts.iouAmount) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouAmount: value ? String(value) : '' }))} /><SheetInput label="Pay back by" value={drafts.iouDue} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, iouDue: value }))} /><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveIou}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Save</AppText></TouchableOpacity></View> : null}
             {sheet === 'goal' ? <View><SheetInput label="What are you saving for?" value={drafts.goalName} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalName: value }))} /><MoneyField label="Target amount" initialAmount={Number(drafts.goalTarget) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalTarget: value ? String(value) : '' }))} /><MoneyField label="Save per month" initialAmount={Number(drafts.goalPer) || 0} rate={model.rate} theme={theme} onChange={(value) => setDrafts((current) => ({ ...current, goalPer: value ? String(value) : '' }))} /><TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={saveGoal}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Create goal</AppText></TouchableOpacity></View> : null}
             {sheet === 'month' ? <View>
               <View style={[styles.row, { marginTop: 10 }]}><AppText style={[styles.itemSub, { color: theme.muted }]}>Spent {formatMoney(budget.spentMonthUsd)} of {formatMoney0(budget.spendableMonthUsd)}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{monthExpenses.length} transaction{monthExpenses.length === 1 ? '' : 's'}</AppText></View>
-              {monthExpenses.map((expense) => { const cat = categoryFor(model.categories, expense.cat); return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => { setDrafts((current) => ({ ...current, selectedExpenseId: expense.id, selectedCat: expense.cat, iouAmount: String(expense.amount), entryCur: expense.cur, addNote: expense.note ?? '' })); setSheet('entry'); }}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.date} · {cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>; })}
+              {monthExpenses.map((expense) => { const cat = categoryFor(model.categories, expense.cat); return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => openEntrySheet(expense)}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{expense.date} · {cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>; })}
               {monthExpenses.length === 0 ? <EmptyState icon="calendar-month" title="No transactions this month" body="Start recording expenses and this month will fill itself in." theme={theme} /> : null}
             </View> : null}
-            {sheet === 'day' ? <View><View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0 }]}>Spent</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 26 }]}>{usd(chartHistory[drafts.selectedDay] ?? 0)}</AppText></View></View> : null}
+            {sheet === 'day' ? <View><View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0 }]}>Spent on {selectedDayDate}</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 26 }]}>{usd(chartHistory[selectedDayIndex] ?? 0)}</AppText></View>{selectedDayExpenses.map((expense) => { const cat = categoryFor(model.categories, expense.cat); return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => openEntrySheet(expense)}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>; })}{selectedDayExpenses.length === 0 ? <EmptyState icon="receipt-long" title="No transactions this day" body="Expenses saved for this date will show up here." theme={theme} /> : null}</View> : null}
             {sheet && ['income', 'fixed', 'loan', 'method', 'currency', 'reminder'].includes(sheet) ? <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={() => setSheet(null)}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Done</AppText></TouchableOpacity> : null}
             </ScrollView>
           </Pressable>
@@ -1402,6 +1441,156 @@ function Upcoming({ icon, color, title, subtitle, amount, theme, onPress, onDone
 
 function Stat({ label, value }: { label: string; value: string }) {
   return <View style={styles.statBox}><AppText style={styles.statValue}>{value}</AppText><AppText style={styles.statLabel}>{label}</AppText></View>;
+}
+
+const QUICK_DUE_DAYS = [1, 5, 15, 25] as const;
+const REMINDER_PRESETS = [
+  ['8:00 PM', '20:00'],
+  ['9:00 PM', '21:00'],
+  ['10:00 PM', '22:00'],
+] as const;
+const BUDGET_MODES: readonly BudgetMode[] = ['balanced', 'saver', 'custom'];
+const CUSTOM_BUDGET_PARTS = ['needs', 'wants', 'save'] as const;
+
+function dayFromInput(value: string) {
+  const parsed = Number(value.replace(/[^0-9]/g, ''));
+  if (!Number.isFinite(parsed) || parsed < 1) return 1;
+  return Math.min(31, Math.trunc(parsed));
+}
+
+function DueDayPicker({ label, value, theme, onChange }: { label: string; value: number; theme: typeof LIGHT; onChange: (day: number) => void }) {
+  return (
+    <View>
+      <AppText style={[styles.label, { color: theme.muted }]}>{label}</AppText>
+      <View style={[styles.segment, { backgroundColor: theme.surface2 }]}>
+        {QUICK_DUE_DAYS.map((day) => (
+          <TouchableOpacity key={day} style={[styles.segmentButton, value === day && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => onChange(day)}>
+            <AppText style={[styles.segmentText, { color: value === day ? theme.text : theme.muted }]}>{ordinal(day)}</AppText>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <AppText style={[styles.label, { color: theme.muted }]}>Or enter any day</AppText>
+      <TextInput
+        style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]}
+        keyboardType="number-pad"
+        value={String(value)}
+        onChangeText={(next) => onChange(dayFromInput(next))}
+        placeholder="1–31"
+        placeholderTextColor={theme.faint}
+        maxLength={2}
+      />
+      <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 6 }]}>Use any calendar day from 1 to 31.</AppText>
+    </View>
+  );
+}
+
+function BudgetMethodPicker({
+  method,
+  custom,
+  theme,
+  onSelect,
+  onCustomChange,
+}: {
+  method: BudgetMode;
+  custom: AppModel['custom'];
+  theme: typeof LIGHT;
+  onSelect: (mode: BudgetMode) => void;
+  onCustomChange: (part: keyof AppModel['custom'], value: number) => void;
+}) {
+  return (
+    <View>
+      {BUDGET_MODES.map((mode) => (
+        <TouchableOpacity
+          key={mode}
+          style={[styles.methodCard, { backgroundColor: method === mode ? theme.primaryWash : theme.surface, borderColor: method === mode ? theme.primary : theme.line }]}
+          onPress={() => onSelect(mode)}
+        >
+          <View style={styles.row}>
+            <AppText style={[styles.itemTitle, { color: theme.text }]}>
+              {mode === 'balanced' ? 'Balanced · 50/30/20' : mode === 'saver' ? 'Saver · 40/30/30' : `Custom · ${custom.needs}/${custom.wants}/${custom.save}`}
+            </AppText>
+            {mode === 'balanced' ? <View style={[styles.duePill, { backgroundColor: theme.primary }]}><AppText style={[styles.duePillText, { color: '#fff' }]}>Recommended</AppText></View> : null}
+          </View>
+          <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 5 }]}>
+            {mode === 'balanced' ? '50% Needs · 30% Wants · 20% Savings' : mode === 'saver' ? 'Tighter spending, faster savings' : 'Design your own Needs/Wants/Savings split'}
+          </AppText>
+        </TouchableOpacity>
+      ))}
+      {method === 'custom' ? (
+        <View>
+          <View style={{ flexDirection: 'row', gap: 10, marginTop: 14 }}>
+            {CUSTOM_BUDGET_PARTS.map((part) => (
+              <View key={part} style={{ flex: 1 }}>
+                <AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 6, fontSize: 11 }]}>{part === 'save' ? 'Savings' : part} %</AppText>
+                <TextInput
+                  style={[styles.input, { padding: 13, fontSize: 16, backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]}
+                  keyboardType="number-pad"
+                  value={String(custom[part])}
+                  onChangeText={(next) => onCustomChange(part, Math.max(0, Math.min(100, Number(next) || 0)))}
+                />
+              </View>
+            ))}
+          </View>
+          {custom.needs + custom.wants + custom.save !== 100 ? (
+            <AppText style={[styles.itemSub, { color: theme.red, marginTop: 8 }]}>Adds up to {custom.needs + custom.wants + custom.save}% — adjust so it totals 100%.</AppText>
+          ) : (
+            <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 8 }]}>Savings come out first, Needs cover fixed costs, Wants set your daily budget.</AppText>
+          )}
+        </View>
+      ) : null}
+    </View>
+  );
+}
+
+function ReminderTimePicker({
+  value,
+  theme,
+  open,
+  onOpenChange,
+  onChange,
+  onPreview,
+}: {
+  value: string;
+  theme: typeof LIGHT;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onChange: (value: string) => void;
+  onPreview?: () => void;
+}) {
+  return (
+    <View>
+      <AppText style={[styles.label, { color: theme.muted }]}>Quick pick</AppText>
+      <View style={[styles.segment, { backgroundColor: theme.surface2 }]}>
+        {REMINDER_PRESETS.map(([label, preset]) => (
+          <TouchableOpacity key={preset} style={[styles.segmentButton, value === preset && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => onChange(preset)}>
+            <AppText style={[styles.segmentText, { color: value === preset ? theme.text : theme.muted }]}>{label}</AppText>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <AppText style={[styles.label, { color: theme.muted }]}>Or choose your own time</AppText>
+      <TouchableOpacity style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} onPress={() => onOpenChange(true)}>
+        <AppText style={{ fontFamily: FONT.bold, fontSize: 18, color: theme.text }}>{formatClock(value)}</AppText>
+        <MaterialIcons name="schedule" size={22} color={theme.muted} />
+      </TouchableOpacity>
+      {open ? (
+        <DateTimePicker
+          value={notifyToDate(value)}
+          mode="time"
+          display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+          onChange={(_event, date) => {
+            onOpenChange(Platform.OS === 'ios');
+            if (date) onChange(`${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`);
+          }}
+        />
+      ) : null}
+      {onPreview ? (
+        <TouchableOpacity style={[styles.button, { backgroundColor: theme.surface2, marginTop: 16, minHeight: 48 }]} onPress={onPreview}>
+          <MaterialIcons name="notifications" size={18} color={theme.text} />
+          <AppText style={[styles.buttonText, { color: theme.text, fontSize: 14 }]}>Send a preview now</AppText>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
 }
 
 function SheetInput({ label, value, theme, onChange }: { label: string; value: string; theme: typeof LIGHT; onChange: (value: string) => void }) {
@@ -1499,6 +1688,7 @@ const styles = StyleSheet.create({
   brandRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   logo: { width: 38, height: 38, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
   logoText: { color: '#fff', fontFamily: FONT.extrabold, fontSize: 19 },
+  footerLogoImage: { width: 26, height: 26, borderRadius: 9 },
   brandName: { fontFamily: FONT.extrabold, fontSize: 17, letterSpacing: -0.2 },
   greet: { fontFamily: FONT.bold, fontSize: 13 },
   title: { fontSize: 21, fontFamily: FONT.extrabold, letterSpacing: -0.4 },
