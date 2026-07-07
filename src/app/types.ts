@@ -1,7 +1,7 @@
 export type Currency = 'USD' | 'KHR';
 export type Screen = 'home' | 'add' | 'categories' | 'detail' | 'goals' | 'insights' | 'settings' | 'onboarding';
 export type BudgetMode = 'balanced' | 'saver' | 'custom';
-export type Sheet = 'income' | 'fixed' | 'loan' | 'method' | 'currency' | 'reminder' | 'category' | 'entry' | 'iou' | 'goal' | 'day' | 'month' | null;
+export type Sheet = 'income' | 'fixed' | 'loan' | 'method' | 'currency' | 'reminder' | 'category' | 'entry' | 'iou' | 'goal' | 'day' | 'month' | 'formula' | null;
 
 export type Category = {
   key: string;
@@ -50,6 +50,8 @@ export type AppModel = {
   salary: number;
   salaryCur: Currency;
   rate: number;
+  exchangeRateLastFetchedDay: string | null;
+  exchangeRateSource: string;
   rent: number;
   utilities: number;
   loan: number;

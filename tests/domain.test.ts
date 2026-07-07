@@ -4,6 +4,7 @@ import { parseExpenseText } from '../src/domain/expenseParser';
 import { DEFAULT_CATEGORIES, INITIAL_TODAY } from '../src/domain/fixtures';
 import { INITIAL_MODEL } from '../src/app/initialState';
 import { convertMoney, formatMoney, money, parseMoney } from '../src/domain/money';
+import { bestAndWorst, buildHeatmap } from '../src/domain/insights';
 
 describe('money', () => {
   it('stores USD cents and KHR whole riel', () => {
@@ -14,6 +15,12 @@ describe('money', () => {
   it('converts KHR/USD deterministically at 4100', () => {
     expect(convertMoney(money(4000, 'KHR'), 'USD', { khrPerUsd: 4100 })).toEqual(money(98, 'USD'));
     expect(convertMoney(money(1000, 'USD'), 'KHR', { khrPerUsd: 4100 })).toEqual(money(41000, 'KHR'));
+  });
+
+  it('rejects non-positive or non-finite exchange rates before conversion', () => {
+    expect(() => convertMoney(money(1000, 'KHR'), 'USD', { khrPerUsd: 0 })).toThrow('Exchange rate must be positive');
+    expect(() => convertMoney(money(1000, 'KHR'), 'USD', { khrPerUsd: -4100 })).toThrow('Exchange rate must be positive');
+    expect(() => convertMoney(money(1000, 'KHR'), 'USD', { khrPerUsd: Number.NaN })).toThrow('Exchange rate must be positive');
   });
 });
 
@@ -74,5 +81,44 @@ describe('budget summary', () => {
     expect(formatMoney(summary.dailyBudgetUsd)).toBe('$19.97');
     expect(formatMoney(summary.spentTodayUsd)).toBe('$8.48');
     expect(formatMoney(summary.leftTodayUsd)).toBe('$11.49');
+  });
+});
+
+describe('insight heatmap helpers', () => {
+  it('classifies no spend, low spend, enough budget, and overspend at thresholds', () => {
+    const cells = buildHeatmap([0, 5, 8.5, 10, 13, 13.01], 10);
+
+    expect(cells.map((cell) => cell.status)).toEqual([
+      'none',
+      'saved-high',
+      'saved',
+      'near',
+      'over',
+      'over-high',
+    ]);
+    expect(cells.map((cell) => cell.spentUsdCents)).toEqual([0, 500, 850, 1000, 1300, 1301]);
+  });
+
+  it('keeps insight rankings meaningful when history has empty days', () => {
+    expect(bestAndWorst([0, 12, 4, 0, 9], 10)).toEqual({
+      spentMost: 1,
+      savedMost: 2,
+    });
+    expect(bestAndWorst([0, 0], 10)).toEqual({
+      spentMost: -1,
+      savedMost: -1,
+    });
+  });
+
+  it('uses only the latest 35 days and labels today when the visible history reaches today', () => {
+    const longHistory = Array.from({ length: 40 }, (_item, index) => index + 1);
+    const longCells = buildHeatmap(longHistory, 100);
+
+    expect(longCells).toHaveLength(35);
+    expect(longCells[0]).toMatchObject({ index: 0, spentUsdCents: 600, label: 'Day 1' });
+    expect(longCells[34]).toMatchObject({ index: 34, spentUsdCents: 4000 });
+
+    const fullVisibleCells = buildHeatmap(Array.from({ length: 35 }, (_item, index) => index + 1), 100);
+    expect(fullVisibleCells[34]).toMatchObject({ index: 34, spentUsdCents: 3500, label: 'Today' });
   });
 });

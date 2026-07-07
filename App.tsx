@@ -19,7 +19,7 @@ import {
   TouchableOpacity,
   View,
 } from 'react-native';
-import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { MaterialIcons } from '@expo/vector-icons';
 import {
   useFonts,
@@ -36,7 +36,7 @@ import {
   KantumruyPro_700Bold,
 } from '@expo-google-fonts/kantumruy-pro';
 import { saveAppState, loadAppState } from './src/db/appStorage';
-import { backupFileName, parsePersistedBackup, stringifyPersistedBackup } from './src/db/appBackup';
+import { backupFileName, deriveRestorePreview, parsePersistedBackup, stringifyPersistedBackup, type RestorePreview } from './src/db/appBackup';
 import { BALANCED, SAVER, summarizeBudget } from './src/domain/budget';
 import { parseExpenseText } from './src/domain/expenseParser';
 import { bestAndWorst, buildHeatmap } from './src/domain/insights';
@@ -45,25 +45,41 @@ import { daysRemainingInMonth, filterExpensesByDay, filterExpensesByMonth, isIso
 import { categoryFor } from './src/domain/categories';
 import type { AppModel, Currency, Drafts, Expense, Screen, Sheet } from './src/app/types';
 import { INITIAL_DRAFTS, INITIAL_MODEL, PALETTE, RATE } from './src/app/initialState';
-import { normalizeLoadedModel, type PersistedAppModel } from './src/app/normalizeLoadedModel';
+import { FIRST_SETUP_ONBOARDING_STEP, LAST_SETUP_ONBOARDING_STEP, WELCOME_ONBOARDING_STEP, normalizeLoadedModel, type PersistedAppModel } from './src/app/normalizeLoadedModel';
+import { fetchUsdToKhrRate, shouldRefreshExchangeRate, USD_TO_KHR_RATE_SOURCE } from './src/services/exchangeRate';
 import { dueText, greetingFor, monthLabel, shiftIsoMonth } from './src/app/dateLabels';
 import { amountLabel, amountUsd, csvEscape, formatClock, heatColor, khr, monthsToGo, nowTime, ordinal, sheetTitle, usd, usd0 } from './src/app/formatters';
 import { DARK, LIGHT } from './src/theme/theme';
 import { FONT } from './src/theme/typography';
 import { AppText } from './src/ui/AppText';
+import { AnimatedPressable } from './src/ui/AnimatedPressable';
 import { Glyph, ICON_SET, type IconName } from './src/ui/icons';
-import { EmptyState, Pill, Progress, RingBudget, Row, SectionHeader, Stat, Upcoming } from './src/ui/components';
+import { AnimatedCue, EmptyState, Pill, Progress, RingBudget, Row, SectionHeader, SelectableChip, SetupDot, Stat, Upcoming } from './src/ui/components';
+import { AnimatedNumber } from './src/ui/AnimatedNumber';
 import { BudgetMethodPicker, DueDayPicker, MoneyField, ReminderTimePicker, SheetInput } from './src/ui/forms';
+import { WelcomeScreen } from './src/ui/WelcomeScreen';
 import { BottomNav } from './src/ui/navigation';
 import { CARD_SHADOW, styles } from './src/ui/styles';
 
+type ToastState = {
+  message: string;
+  actionLabel?: string;
+  action?: () => void;
+};
 
-export default function App() {
+type PendingRestore = {
+  model: AppModel;
+  preview: RestorePreview;
+};
+
+
+function AppContent() {
   const [model, setModel] = useState<AppModel>(INITIAL_MODEL);
   const [drafts, setDrafts] = useState<Drafts>(INITIAL_DRAFTS);
   const [hydrated, setHydrated] = useState(false);
   const [sheet, setSheet] = useState<Sheet>(null);
-  const [toast, setToast] = useState<string | null>(null);
+  const [toast, setToast] = useState<ToastState | null>(null);
+  const [pendingRestore, setPendingRestore] = useState<PendingRestore | null>(null);
   const [celebrate, setCelebrate] = useState<{ title: string; body: string } | null>(null);
   const [timePickerOpen, setTimePickerOpen] = useState(false);
   const [heatWidth, setHeatWidth] = useState(0);
@@ -73,6 +89,9 @@ export default function App() {
   const lastBackPressAt = useRef(0);
   const [exportOpen, setExportOpen] = useState(false);
   const [exportMonth, setExportMonth] = useState(() => isoMonthFromDay(isoDayFromDate(new Date())));
+  const rateRefreshInFlightDay = useRef<string | null>(null);
+  const [recentExpenseId, setRecentExpenseId] = useState<string | null>(null);
+  const sweepInProgressRef = useRef(false);
   const [fontsLoaded] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -85,6 +104,8 @@ export default function App() {
     KantumruyPro_700Bold,
   });
   const theme = model.dark ? DARK : LIGHT;
+  const safeInsets = useSafeAreaInsets();
+  const footerBottomPadding = Math.max(16, safeInsets.bottom + 10);
 
   useEffect(() => {
     try {
@@ -105,6 +126,38 @@ export default function App() {
     });
     return () => subscription.remove();
   }, [hydrated]);
+
+  useEffect(() => {
+    if (!hydrated) return;
+
+    const todayForRate = isoDayFromDate(new Date());
+    if (!shouldRefreshExchangeRate(model.exchangeRateLastFetchedDay, todayForRate)) return;
+    if (rateRefreshInFlightDay.current === todayForRate) return;
+
+    rateRefreshInFlightDay.current = todayForRate;
+    setModel((current) => {
+      if (!shouldRefreshExchangeRate(current.exchangeRateLastFetchedDay, todayForRate)) return current;
+      return { ...current, exchangeRateLastFetchedDay: todayForRate };
+    });
+
+    void fetchUsdToKhrRate()
+      .then((result) => {
+        if (result === null) return;
+        setModel((current) => ({
+          ...current,
+          rate: result.khrPerUsd,
+          exchangeRateSource: result.source,
+        }));
+      })
+      .catch((error) => {
+        console.warn('Could not refresh USD/KHR exchange rate', error);
+      })
+      .finally(() => {
+        if (rateRefreshInFlightDay.current === todayForRate) {
+          rateRefreshInFlightDay.current = null;
+        }
+      });
+  }, [hydrated, model.exchangeRateLastFetchedDay, model.lastActiveDay]);
 
   useEffect(() => {
     if (!hydrated) return;
@@ -158,9 +211,9 @@ export default function App() {
   const selectedDayDate = isoDayFromDate(new Date(new Date().setDate(new Date().getDate() - (chartHistory.length - 1 - selectedDayIndex))));
   const selectedDayExpenses = filterExpensesByDay(model.expenses, selectedDayDate);
 
-  function showToast(message: string) {
-    setToast(message);
-    setTimeout(() => setToast(null), 2400);
+  function showToast(message: string, actionLabel?: string, action?: () => void) {
+    setToast({ message, actionLabel, action });
+    setTimeout(() => setToast(null), action ? 5200 : 2400);
   }
 
   function updateModel(recipe: (current: AppModel) => AppModel) {
@@ -174,6 +227,10 @@ export default function App() {
 
   useEffect(() => {
     const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      if (pendingRestore) {
+        setPendingRestore(null);
+        return true;
+      }
       if (celebrate) {
         setCelebrate(null);
         return true;
@@ -183,8 +240,8 @@ export default function App() {
         return true;
       }
       if (!model.onboarded || model.screen === 'onboarding') {
-        if (model.onbStep > 1) {
-          updateModel((current) => ({ ...current, onbStep: current.onbStep - 1 }));
+        if (model.onbStep > WELCOME_ONBOARDING_STEP) {
+          updateModel((current) => ({ ...current, onbStep: Math.max(WELCOME_ONBOARDING_STEP, current.onbStep - 1) }));
         } else {
           showToast('Finish setup to start budgeting');
         }
@@ -205,7 +262,7 @@ export default function App() {
       return true;
     });
     return () => subscription.remove();
-  }, [celebrate, sheet, model.onboarded, model.screen, model.onbStep]);
+  }, [celebrate, pendingRestore, sheet, model.onboarded, model.screen, model.onbStep]);
 
   function openEntrySheet(expense: Expense) {
     setDrafts((current) => ({
@@ -243,6 +300,7 @@ export default function App() {
     };
     const usdValue = amountUsd(expense.amount, expense.cur, model.rate);
     const adjustCurrentMonth = isoMonthFromDay(expense.date) === thisMonth;
+    setRecentExpenseId(expense.id);
     updateModel((current) => ({
       ...current,
       screen: 'home',
@@ -250,7 +308,13 @@ export default function App() {
       categories: adjustCurrentMonth ? current.categories.map((item) => (item.key === expenseCat ? { ...item, spentUsd: item.spentUsd + usdValue } : item)) : current.categories,
     }));
     setDrafts((current) => ({ ...current, addText: '', addNote: '', selectedCat: '', expenseDate: today }));
-    showToast(`Added ${amountLabel(expense.amount, expense.cur)}`);
+    showToast(`Added ${expense.name}`, 'Undo', () => {
+      updateModel((current) => ({
+        ...current,
+        expenses: current.expenses.filter((item) => item.id !== expense.id),
+        categories: adjustCurrentMonth ? current.categories.map((item) => (item.key === expenseCat ? { ...item, spentUsd: Math.max(0, item.spentUsd - usdValue) } : item)) : current.categories,
+      }));
+    });
   }
 
   function deleteExpense(id: string) {
@@ -263,7 +327,13 @@ export default function App() {
       expenses: current.expenses.filter((item) => item.id !== id),
       categories: adjustCurrentMonth ? current.categories.map((item) => (item.key === expense.cat ? { ...item, spentUsd: Math.max(0, item.spentUsd - usdValue) } : item)) : current.categories,
     }));
-    showToast(`Removed ${expense.name}`);
+    showToast(`Deleted ${expense.name}`, 'Undo', () => {
+      updateModel((current) => ({
+        ...current,
+        expenses: current.expenses.some((item) => item.id === expense.id) ? current.expenses : [expense, ...current.expenses],
+        categories: adjustCurrentMonth ? current.categories.map((item) => (item.key === expense.cat ? { ...item, spentUsd: item.spentUsd + usdValue } : item)) : current.categories,
+      }));
+    });
   }
 
   function saveEntry() {
@@ -381,26 +451,37 @@ export default function App() {
 
   function sweepLeftover() {
     const leftoverUsd = Math.max(0, budget.leftTodayUsd.amountMinor) / 100;
-    if (leftoverUsd <= 0) return;
+    if (leftoverUsd <= 0 || sweepInProgressRef.current || model.swept) return;
     if (model.goals.length === 0) {
       showToast('Create a goal to sweep into');
       return;
     }
-    updateModel((current) => ({
-      ...current,
-      swept: true,
-      goals: current.goals.map((goal, index) => {
-        if (index !== 0) return goal;
-        const saved = Math.min(goal.target, goal.saved + leftoverUsd);
-        return { ...goal, saved, celebrated: saved >= goal.target ? true : goal.celebrated };
-      }),
-    }));
+    sweepInProgressRef.current = true;
+    setTimeout(() => {
+      sweepInProgressRef.current = false;
+    }, 900);
+    updateModel((current) => {
+      if (current.swept) return current;
+      return {
+        ...current,
+        swept: true,
+        goals: current.goals.map((goal, index) => {
+          if (index !== 0) return goal;
+          const saved = Math.min(goal.target, goal.saved + leftoverUsd);
+          return { ...goal, saved, celebrated: saved >= goal.target ? true : goal.celebrated };
+        }),
+      };
+    });
     const topGoal = model.goals[0];
     const reached = topGoal.saved + leftoverUsd >= topGoal.target;
-    setCelebrate({
-      title: reached ? 'Savings goal reached!' : 'Swept into savings!',
-      body: `You've set aside ${usd(leftoverUsd)} toward ${topGoal.name} — future you says thanks.`,
-    });
+    if (reached) {
+      setCelebrate({
+        title: 'Savings goal reached!',
+        body: `You've set aside ${usd(leftoverUsd)} toward ${topGoal.name} — future you says thanks.`,
+      });
+    } else {
+      showToast(`Swept ${usd(leftoverUsd)} into ${topGoal.name}`);
+    }
   }
 
   function markBillPaid(key: string, label: string) {
@@ -497,7 +578,7 @@ export default function App() {
       if (await Sharing.isAvailableAsync()) {
         await Sharing.shareAsync(uri, { mimeType: 'application/json', dialogTitle: 'Export Luy Khnom backup' });
       }
-      showToast('JSON backup exported');
+      showToast('Backup ready — JSON restores the whole app');
     } catch (error) {
       console.warn('Could not export Luy Khnom backup', error);
       showToast('Could not export backup');
@@ -516,15 +597,27 @@ export default function App() {
       if (!uri) throw new Error('No backup file selected');
       const raw = await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.UTF8 });
       const backup = parsePersistedBackup<PersistedAppModel>(raw);
-      const restored = normalizeLoadedModel(backup.state);
-      saveAppState(restored);
-      setModel(restored);
-      setDrafts(INITIAL_DRAFTS);
-      setSheet(null);
-      showToast('Backup restored');
+      const preview = deriveRestorePreview(backup);
+      if (!preview) throw new Error('Backup preview is unavailable');
+      setPendingRestore({ model: normalizeLoadedModel(backup.state), preview });
     } catch (error) {
       console.warn('Could not import Luy Khnom backup', error);
       showToast(error instanceof Error ? error.message : 'Could not import backup');
+    }
+  }
+
+  async function restorePendingBackup() {
+    if (!pendingRestore) return;
+    try {
+      await saveAppState(pendingRestore.model);
+      setModel(pendingRestore.model);
+      setDrafts(INITIAL_DRAFTS);
+      setSheet(null);
+      setPendingRestore(null);
+      showToast('Backup restored');
+    } catch (error) {
+      console.warn('Could not restore Luy Khnom backup', error);
+      showToast('Could not restore backup');
     }
   }
 
@@ -546,14 +639,21 @@ export default function App() {
 
   function renderOnboarding() {
     const step = model.onbStep;
+    if (step === WELCOME_ONBOARDING_STEP) {
+      return (
+        <SafeAreaView style={[styles.safe, { backgroundColor: theme.page }]}>
+          <WelcomeScreen theme={theme} onStart={() => updateModel((current) => ({ ...current, onbStep: FIRST_SETUP_ONBOARDING_STEP }))} />
+        </SafeAreaView>
+      );
+    }
     return (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.page }]}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-          <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'} contentContainerStyle={[styles.scroll, { paddingBottom: 180 }]}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 24}>
+          <ScrollView key={`setup-${step}`} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'} contentContainerStyle={[styles.scroll, { paddingBottom: Math.max(220, footerBottomPadding + 156) }]}>
             <View style={[styles.headerRow, { marginTop: 4, marginBottom: 20 }]}>
             <View style={{ width: 40 }}>{step > 1 ? <TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => updateModel((current) => ({ ...current, onbStep: current.onbStep - 1 }))}><MaterialIcons name="arrow-back" size={20} color={theme.text} /></TouchableOpacity> : null}</View>
             <View style={styles.dots}>
-              {[1, 2, 3].map((item) => <View key={item} style={[styles.dot, { backgroundColor: item <= step ? theme.primary : theme.surface2, width: item <= step ? 22 : 8 }]} />)}
+              {[1, 2, 3].map((item) => <SetupDot key={item} active={item <= step} activeColor={theme.primary} inactiveColor={theme.surface2} />)}
             </View>
             <View style={{ width: 40 }} />
           </View>
@@ -628,11 +728,11 @@ export default function App() {
             </View>
           ) : null}
           </ScrollView>
-          <View style={[styles.footer, { backgroundColor: theme.page, borderColor: theme.line }]}>
-            <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary }]} onPress={() => updateModel((current) => current.onbStep < 3 ? { ...current, onbStep: current.onbStep + 1 } : { ...current, onboarded: true, screen: 'home' })}>
-              <AppText style={styles.buttonText}>{step < 3 ? 'Continue' : 'Start budgeting'}</AppText>
-              <MaterialIcons name="arrow-forward" size={20} color="#fff" />
-            </TouchableOpacity>
+          <View style={[styles.footer, { backgroundColor: theme.page, borderColor: theme.line, paddingBottom: footerBottomPadding }]}>
+            <AnimatedPressable accessibilityRole="button" accessibilityLabel={step < LAST_SETUP_ONBOARDING_STEP ? 'Continue setup' : 'Start budgeting'} style={[styles.button, { backgroundColor: theme.primary }]} contentStyle={styles.buttonContent} onPress={() => updateModel((current) => current.onbStep < LAST_SETUP_ONBOARDING_STEP ? { ...current, onbStep: current.onbStep + 1 } : { ...current, onboarded: true, screen: 'home' })}>
+              <AppText numberOfLines={1} style={styles.buttonText}>{step < LAST_SETUP_ONBOARDING_STEP ? 'Continue' : 'Start budgeting'}</AppText>
+              <MaterialIcons name="arrow-forward" size={20} color="#fff" style={styles.buttonIcon} />
+            </AnimatedPressable>
           </View>
         </KeyboardAvoidingView>
       </SafeAreaView>
@@ -643,7 +743,9 @@ export default function App() {
     const topGoals = model.goals.slice(0, 3);
     const leftAbsUsd = Math.abs(budget.leftTodayUsd.amountMinor) / 100;
     const leftFmt = model.baseCur === 'KHR' ? khr(leftAbsUsd * model.rate) : formatMoney(money(Math.abs(budget.leftTodayUsd.amountMinor), 'USD'));
+    const leftAmountValue = model.baseCur === 'KHR' ? leftAbsUsd * model.rate : leftAbsUsd;
     const leftAlt = model.baseCur === 'KHR' ? usd(leftAbsUsd) : khr(leftAbsUsd * model.rate);
+    const ringLabel = budget.status === 'over' ? 'Over budget today' : budget.status === 'close' ? "Almost at today's limit" : 'Left to spend today';
     const hasLoanPayment = model.billReminders && model.loan > 0 && !model.paidBills.loan;
     const hasRentPayment = model.billReminders && model.rent + model.utilities > 0 && !model.paidBills.rent;
     const hasUpcoming = hasLoanPayment || hasRentPayment || model.ious.length > 0;
@@ -656,18 +758,25 @@ export default function App() {
         <View style={styles.ringWrap}>
           <RingBudget pct={budget.ringPct} color={ringColor} bg={theme.ringTrack} />
           <View style={styles.ringCenter}>
-            <AppText style={[styles.ringLabel, { color: theme.muted }]}>{budget.leftTodayUsd.amountMinor < 0 ? 'Over budget today' : 'Left to spend today'}</AppText>
-            <AppText numberOfLines={1} style={[styles.ringAmount, { color: budget.leftTodayUsd.amountMinor < 0 ? theme.red : theme.text, fontSize: leftFmt.length > 10 ? 26 : leftFmt.length > 8 ? 32 : leftFmt.length > 6 ? 40 : 50 }]}>{leftFmt}</AppText>
-            <AppText style={[styles.ringKhr, { color: theme.muted }]}>≈ {leftAlt}</AppText>
+            <AnimatedCue trigger={ringLabel} distance={3} scale={1} style={{ alignItems: 'center' }}>
+              <AppText style={[styles.ringLabel, { color: budget.status === 'over' ? theme.red : budget.status === 'close' ? theme.amber : theme.muted }]}>{ringLabel}</AppText>
+            </AnimatedCue>
+            <AnimatedNumber
+              numberOfLines={1}
+              value={leftAmountValue}
+              format={(value) => model.baseCur === 'KHR' ? khr(value) : formatMoney(money(Math.round(value * 100), 'USD'))}
+              style={[styles.ringAmount, { color: budget.status === 'over' ? theme.red : theme.text, fontSize: leftFmt.length > 10 ? 26 : leftFmt.length > 8 ? 32 : leftFmt.length > 6 ? 40 : 50 }]}
+            />
+            <AppText style={[styles.ringKhr, { color: theme.muted }]}>{budget.status === 'over' ? 'Tomorrow adjusts for this overspend' : `≈ ${leftAlt}`}</AppText>
           </View>
         </View>
-        <Pill icon="bolt" text={`${formatMoney(budget.baseDailyUsd)} base + ${formatMoney(rolloverYesterday)} rolled over`} theme={theme} />
-        <Pill icon="trending-up" text={`Tomorrow ≈ ${formatMoney(budget.tomorrowUsd)} at this pace`} theme={theme} />
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Show daily budget calculation" activeOpacity={0.8} onPress={() => setSheet('formula')}><Pill icon="bolt" text={`${formatMoney(budget.baseDailyUsd)} base + ${formatMoney(rolloverYesterday)} rolled over`} theme={theme} /></TouchableOpacity>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Show tomorrow budget calculation" activeOpacity={0.8} onPress={() => setSheet('formula')}><Pill icon="trending-up" text={`Tomorrow ≈ ${formatMoney(budget.tomorrowUsd)} at this pace`} theme={theme} /></TouchableOpacity>
         <TouchableOpacity activeOpacity={0.7} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => setSheet('month')}>
           <View style={[styles.row, { marginBottom: 16 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>This month</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>{daysRemainingInMonth(today)} days left</AppText></View></View>
           <Progress label="Spent" value={formatMoney(budget.spentMonthUsd)} total={formatMoney0(budget.spendableMonthUsd)} pct={budget.monthPct} color={theme.primary} theme={theme} />
           <Progress label="Saved so far" value={formatMoney(savedSoFarUsd)} total={formatMoney0(budget.savingsTargetUsd)} pct={budget.savingsPct} color={theme.green} theme={theme} />
-          {model.swept ? <View style={[styles.sweep, { backgroundColor: `${theme.green}1f` }]}><MaterialIcons name="celebration" size={18} color={theme.green} /><AppText style={[styles.chipText, { color: theme.green, fontFamily: FONT.bold }]}>Savings goal reached this month</AppText></View> : budget.leftTodayUsd.amountMinor > 0 ? <TouchableOpacity style={[styles.sweep, { backgroundColor: theme.primaryWash }]} onPress={sweepLeftover}><MaterialIcons name="savings" size={18} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>Sweep {usd(budget.leftTodayUsd.amountMinor / 100)} leftover into savings</AppText></TouchableOpacity> : null}
+          {model.swept ? <AnimatedCue trigger="swept"><View style={[styles.sweep, { backgroundColor: `${theme.green}1f` }]}><MaterialIcons name="savings" size={18} color={theme.green} /><AppText style={[styles.chipText, { color: theme.green, fontFamily: FONT.bold }]}>Leftover protected in savings</AppText></View></AnimatedCue> : budget.leftTodayUsd.amountMinor > 0 ? <AnimatedPressable accessibilityRole="button" accessibilityLabel="Sweep leftover into savings" style={[styles.sweep, { backgroundColor: theme.primaryWash }]} contentStyle={styles.buttonContent} onPress={sweepLeftover}><MaterialIcons name="savings" size={18} color={theme.primary} /><AppText style={[styles.chipText, { color: theme.primary, fontFamily: FONT.bold }]}>Sweep {usd(budget.leftTodayUsd.amountMinor / 100)} leftover into savings</AppText></AnimatedPressable> : null}
         </TouchableOpacity>
         {topGoals.length > 0 ? <><SectionHeader title={topGoals.length > 1 ? 'Top goals' : 'Goal'} action="All goals" theme={theme} onAction={() => go('goals')} />{topGoals.map((goal) => <TouchableOpacity key={goal.id} style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line, marginTop: 0, marginBottom: 10 }]} onPress={() => go('goals')}><View style={[styles.expenseRow, { borderBottomWidth: 0, paddingVertical: 0, marginBottom: 12 }]}><View style={[styles.bubble, { backgroundColor: `${theme.primary}1f` }]}><Glyph name={goal.icon} color={theme.primary} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemTitle, { color: theme.text }]}>{goal.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{amountLabel(goal.perMonth, goal.cur)}/month</AppText>{monthsToGo(goal) ? <AppText style={[styles.itemSub, { color: theme.muted }]}>{monthsToGo(goal)}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(goal.saved, goal.cur)}</AppText></View><View style={[styles.track, { backgroundColor: theme.surface2 }]}><View style={[styles.fill, { width: `${Math.min(100, (goal.saved / goal.target) * 100)}%`, backgroundColor: theme.primary }]} /></View></TouchableOpacity>)}</> : null}
         {topGoals.length === 0 ? <><SectionHeader title="Goals" action="New goal" theme={theme} onAction={() => setSheet('goal')} /><EmptyState icon="flag" title="Start a savings goal" body="Add a trip, emergency fund, or anything you want future money to protect." theme={theme} /></> : null}
@@ -679,7 +788,8 @@ export default function App() {
         <SectionHeader title="Today" action="Summary" theme={theme} onAction={() => go('insights')} />
         {todayExpenses.map((expense) => {
           const cat = categoryFor(model.categories, expense.cat);
-          return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => openEntrySheet(expense)}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText><TouchableOpacity onPress={() => deleteExpense(expense.id)} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="close" size={19} color={theme.faint} /></TouchableOpacity></TouchableOpacity>;
+          const row = <TouchableOpacity style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => openEntrySheet(expense)}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText><TouchableOpacity onPress={() => deleteExpense(expense.id)} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="close" size={19} color={theme.faint} /></TouchableOpacity></TouchableOpacity>;
+          return expense.id === recentExpenseId ? <AnimatedCue key={expense.id} trigger={expense.id}>{row}</AnimatedCue> : <View key={expense.id}>{row}</View>;
         })}
         {todayExpenses.length === 0 ? <EmptyState icon="edit-note" title="Start recording today" body="Tap + when you spend. Today's list stays quiet until there is something to track." theme={theme} /> : null}
       </ScrollView>
@@ -690,24 +800,35 @@ export default function App() {
     const hasAmount = Boolean(parsedAmount);
     const hasValidDate = isIsoDay(drafts.expenseDate.trim());
     const canSave = hasAmount && hasValidDate;
+    const parsedAmountValue = parsedAmount ? (parsedAmount.currency === 'KHR' ? parsedAmount.amountMinor : parsedAmount.amountMinor / 100) : 0;
     return (
-      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-        <ScrollView contentContainerStyle={[styles.scroll, { paddingBottom: 160 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}>
-        {renderTopBar('Add expense', undefined, 'home')}
-        <TextInput style={[styles.addInput, { backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} placeholder="Try: netflix, 10$  or  food, 1000 riels" placeholderTextColor={theme.faint} value={drafts.addText} onChangeText={(value) => { const next = parseExpenseText(value); setDrafts((current) => ({ ...current, addText: value, selectedCat: next.categoryKey })); }} />
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
-          <View style={styles.aiHeader}><MaterialIcons name="auto-awesome" size={17} color={theme.primary} /><AppText style={[styles.aiHeaderText, { color: theme.primary }]}>Understood</AppText></View>
-          <View style={[styles.headerRow, { alignItems: 'flex-end', marginTop: 6 }]}><View style={{ flex: 1 }}><AppText style={[styles.parsedAmount, { color: theme.text }]}>{parsedAmount ? formatMoney(parsedAmount) : '—'}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{parsedAmount ? parsedAmount.currency === 'KHR' ? `≈ ${usd((parsedAmount.amountMinor / model.rate))}` : `≈ ${khr((parsedAmount.amountMinor / 100) * model.rate)}` : 'Start typing above'}</AppText></View><View style={[styles.bubbleLarge, { backgroundColor: `${parsedCat.color}22` }]}><Glyph name={parsedCat.icon} size={27} color={parsedCat.color} /></View></View>
-          <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 16 }]}>Category — tap to change</AppText>
-        </View>
-        <View style={styles.chipRow}>{model.categories.map((cat) => { const on = drafts.selectedCat === cat.key; return <TouchableOpacity key={cat.key} style={[styles.chip, { borderColor: on ? cat.color : theme.line, backgroundColor: on ? cat.color : theme.surface }]} onPress={() => setDrafts((current) => ({ ...current, selectedCat: cat.key }))}><Glyph name={cat.icon} size={18} color={on ? '#fff' : cat.color} /><AppText style={[styles.chipText, { color: on ? '#fff' : theme.muted }]}>{cat.label}</AppText></TouchableOpacity>; })}</View>
-        {model.categories.length === 0 ? <EmptyState icon="category" title="No categories yet" body="You can still save this as Uncategorized, or add custom categories from Categories." theme={theme} /> : null}
-        <AppText style={[styles.label, { color: theme.muted }]}>Transaction date</AppText>
-        <TextInput style={[styles.input, { backgroundColor: theme.surface, borderColor: hasValidDate ? theme.line : theme.red, color: theme.text, fontFamily: FONT.semibold, fontSize: 16 }]} placeholder="YYYY-MM-DD" placeholderTextColor={theme.faint} value={drafts.expenseDate} onChangeText={(value) => setDrafts((current) => ({ ...current, expenseDate: value }))} autoCapitalize="none" autoCorrect={false} />
-        {!hasValidDate ? <AppText style={[styles.itemSub, { color: theme.red, marginTop: 7 }]}>Use YYYY-MM-DD, for example {today}.</AppText> : null}
-        <AppText style={[styles.label, { color: theme.muted }]}>Note (optional)</AppText>
-        <TextInput style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, color: theme.text, fontFamily: FONT.semibold, fontSize: 16 }]} placeholder="e.g. team lunch" placeholderTextColor={theme.faint} value={drafts.addNote} onChangeText={(value) => setDrafts((current) => ({ ...current, addNote: value }))} />
-        <TouchableOpacity disabled={!canSave} style={[styles.button, { backgroundColor: theme.primary, opacity: canSave ? 1 : 0.35, marginTop: 24 }]} onPress={addExpense}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Add {parsedAmount ? formatMoney(parsedAmount) : ''}</AppText></TouchableOpacity>
+      <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
+        <ScrollView key="add" contentContainerStyle={[styles.scroll, { paddingBottom: 240 }]} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'}>
+          {renderTopBar('Add expense', undefined, 'home')}
+          <TextInput style={[styles.addInput, { backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} placeholder="Try: netflix, 10$  or  food, 1000 riels" placeholderTextColor={theme.faint} value={drafts.addText} onChangeText={(value) => { const next = parseExpenseText(value); setDrafts((current) => ({ ...current, addText: value, selectedCat: next.categoryKey })); }} />
+          <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
+            <View style={styles.aiHeader}><MaterialIcons name="auto-awesome" size={17} color={theme.primary} /><AppText style={[styles.aiHeaderText, { color: theme.primary }]}>Understood</AppText></View>
+            <View style={[styles.headerRow, { alignItems: 'flex-end', marginTop: 6 }]}>
+              <View style={{ flex: 1 }}>
+                {parsedAmount ? <AnimatedNumber value={parsedAmountValue} format={(value) => parsedAmount.currency === 'KHR' ? formatMoney(money(Math.round(value), 'KHR')) : formatMoney(money(Math.round(value * 100), 'USD'))} style={[styles.parsedAmount, { color: theme.text }]} /> : <AppText style={[styles.parsedAmount, { color: theme.text }]}>—</AppText>}
+                <AnimatedCue trigger={hasAmount ? `${parsedAmount?.currency}-${parsedAmount?.amountMinor}` : 'empty'} distance={4} scale={1}>
+                  <AppText style={[styles.itemSub, { color: theme.muted }]}>{parsedAmount ? parsedAmount.currency === 'KHR' ? `≈ ${usd((parsedAmount.amountMinor / model.rate))}` : `≈ ${khr((parsedAmount.amountMinor / 100) * model.rate)}` : 'Start typing above'}</AppText>
+                </AnimatedCue>
+              </View>
+              <AnimatedCue trigger={parsedCat.key} distance={4}>
+                <View style={[styles.bubbleLarge, { backgroundColor: `${parsedCat.color}22` }]}><Glyph name={parsedCat.icon} size={27} color={parsedCat.color} /></View>
+              </AnimatedCue>
+            </View>
+            <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 16 }]}>Category — tap to change</AppText>
+          </View>
+          <View style={styles.chipRow}>{model.categories.map((cat) => { const on = drafts.selectedCat === cat.key; return <SelectableChip key={cat.key} icon={cat.icon} label={cat.label} selected={on} selectedColor={cat.color} textColor="#fff" mutedColor={theme.muted} borderColor={theme.line} surfaceColor={theme.surface} onPress={() => setDrafts((current) => ({ ...current, selectedCat: cat.key }))} />; })}</View>
+          {model.categories.length === 0 ? <EmptyState icon="category" title="No categories yet" body="You can still save this as Uncategorized, or add custom categories from Categories." theme={theme} /> : null}
+          <AppText style={[styles.label, { color: theme.muted }]}>Transaction date</AppText>
+          <TextInput style={[styles.input, { backgroundColor: theme.surface, borderColor: hasValidDate ? theme.line : theme.red, color: theme.text, fontFamily: FONT.semibold, fontSize: 16 }]} placeholder="YYYY-MM-DD" placeholderTextColor={theme.faint} value={drafts.expenseDate} onChangeText={(value) => setDrafts((current) => ({ ...current, expenseDate: value }))} autoCapitalize="none" autoCorrect={false} />
+          {!hasValidDate ? <AppText style={[styles.itemSub, { color: theme.red, marginTop: 7 }]}>Use YYYY-MM-DD, for example {today}.</AppText> : null}
+          <AppText style={[styles.label, { color: theme.muted }]}>Note (optional)</AppText>
+          <TextInput style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, color: theme.text, fontFamily: FONT.semibold, fontSize: 16 }]} placeholder="e.g. team lunch" placeholderTextColor={theme.faint} value={drafts.addNote} onChangeText={(value) => setDrafts((current) => ({ ...current, addNote: value }))} />
+          <AnimatedPressable disabled={!canSave} accessibilityRole="button" accessibilityLabel={parsedAmount ? `Add ${formatMoney(parsedAmount)}` : 'Add expense'} style={[styles.button, { backgroundColor: theme.primary, opacity: canSave ? 1 : 0.35, marginTop: 24 }]} contentStyle={styles.buttonContent} onPress={addExpense}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText numberOfLines={1} style={styles.buttonText}>Add {parsedAmount ? formatMoney(parsedAmount) : ''}</AppText></AnimatedPressable>
         </ScrollView>
       </KeyboardAvoidingView>
     );
@@ -786,24 +907,28 @@ export default function App() {
     const topCategory = model.categories.map((category) => ({ category, spentUsd: categoryMonthSpentUsd(category.key) })).sort((a, b) => b.spentUsd - a.spentUsd)[0];
     const insightTip = topCategory && topCategory.spentUsd > 0 ? `${topCategory.category.label} is your top spend this month. Small cuts there will move your savings fastest.` : 'Add expenses today to see category-specific savings tips.';
     const exportMonths = [0, -1, -2].map((delta) => shiftIsoMonth(thisMonth, delta));
+    const insightDays = new Set(model.expenses.map((expense) => expense.date)).size;
+    const hasInsightData = insightDays > 0;
+    const hasEnoughInsightData = insightDays >= 3;
     return (
       <ScrollView contentContainerStyle={styles.scroll} showsVerticalScrollIndicator={false}>
         {renderTopBar('Insights', 'Your end-of-day summary, all in one place.')}
-        <View style={[styles.statusCard, { backgroundColor: budget.status === 'over' ? theme.red : theme.green }]}><View style={styles.statusPill}><MaterialIcons name="schedule" size={15} color="#fff" /><AppText style={styles.statusPillText}>End of day · today</AppText></View><AppText style={styles.statusHeadline}>{budget.status === 'over' ? 'A little over today — tomorrow adjusts for you.' : "You're under budget today — nice work."}</AppText><View style={styles.statRow}><Stat label="Spent today" value={formatMoney(budget.spentTodayUsd)} /><Stat label="Saved today" value={formatMoney(money(Math.max(budget.leftTodayUsd.amountMinor, 0), 'USD'))} /></View><View style={styles.tip}><MaterialIcons name="lightbulb" size={20} color="#fff" /><AppText style={styles.tipText}>{insightTip}</AppText></View></View>
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><View style={[styles.row, { marginBottom: 14 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>This week</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>Daily budget {formatMoney(budget.dailyBudgetUsd)}</AppText></View></View>
+        {!hasInsightData ? <AnimatedCue trigger="insights-empty"><EmptyState icon="receipt-long" title="No spending recorded yet" body="Record your first expense to see daily budget and savings insights." theme={theme} /></AnimatedCue> : null}
+        {hasInsightData ? <View style={[styles.statusCard, { backgroundColor: budget.status === 'over' ? theme.red : theme.green }]}><View style={styles.statusPill}><MaterialIcons name="schedule" size={15} color="#fff" /><AppText style={styles.statusPillText}>End of day · today</AppText></View><AppText style={styles.statusHeadline}>{budget.status === 'over' ? 'A little over today — tomorrow adjusts for you.' : "You're under budget today — nice work."}</AppText><View style={styles.statRow}><Stat label="Spent today" value={formatMoney(budget.spentTodayUsd)} /><Stat label="Saved today" value={formatMoney(money(Math.max(budget.leftTodayUsd.amountMinor, 0), 'USD'))} /></View><View style={styles.tip}><MaterialIcons name="lightbulb" size={20} color="#fff" /><AppText style={styles.tipText}>{insightTip}</AppText></View></View> : null}
+        {hasInsightData ? <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><View style={[styles.row, { marginBottom: 14 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>This week</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>Daily budget {formatMoney(budget.dailyBudgetUsd)}</AppText></View></View>
           <View style={{ position: 'relative' }}>
             <View style={[styles.chart, { height: chartH + labelOffset }]}>{week.map((value, index) => <TouchableOpacity key={index} activeOpacity={0.7} style={styles.barCol} onPress={() => showToast(`${weekLabels[index]} · ${usd(value)}`)}><View style={[styles.bar, { height: Math.max(6, (value / maxVal) * chartH), backgroundColor: value > dailyBudget ? theme.amber : theme.primary }]} /><AppText style={[styles.barDay, { color: theme.muted }]}>{weekLabels[index]}</AppText></TouchableOpacity>)}</View>
             <View pointerEvents="none" style={{ position: 'absolute', left: 0, right: 0, bottom: budgetBottom, borderTopWidth: 2, borderStyle: 'dashed', borderColor: theme.faint }} />
             <View pointerEvents="none" style={{ position: 'absolute', right: 0, bottom: budgetBottom - 8 }}><AppText style={{ fontFamily: FONT.bold, fontSize: 10, color: theme.faint, backgroundColor: theme.surface, paddingHorizontal: 4 }}>budget</AppText></View>
           </View>
-        </View>
-        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><View style={[styles.row, { marginBottom: 12 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Spending activity</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>last 5 weeks</AppText></View></View>
-          <View onLayout={(event) => setHeatWidth(event.nativeEvent.layout.width)}>{heatSize > 0 ? heatRows.map((row, rowIndex) => <View key={rowIndex} style={{ flexDirection: 'row', justifyContent: row.length === 7 ? 'space-between' : 'flex-start', gap: row.length === 7 ? 0 : heatGap, marginTop: rowIndex === 0 ? 0 : heatGap }}>{row.map((cell) => <TouchableOpacity key={cell.index} style={{ width: heatSize, height: heatSize, borderRadius: 5, backgroundColor: heatColor(cell.status, theme) }} onPress={() => { setDrafts((current) => ({ ...current, selectedDay: cell.index })); setSheet('day'); }} />)}</View>) : null}</View>
+        </View> : null}
+        <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><View style={[styles.row, { marginBottom: 12 }]}><AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14 }]}>Spending activity</AppText><View style={[styles.duePill, { backgroundColor: theme.surface2 }]}><AppText style={[styles.duePillText, { color: theme.muted }]}>{hasEnoughInsightData ? 'last 5 weeks' : `${insightDays} of 3 days`}</AppText></View></View>
+          {!hasInsightData ? <EmptyState icon="edit-note" title="Start recording" body="No heatmap yet. Your real spending days will appear here." theme={theme} /> : !hasEnoughInsightData ? <AnimatedCue trigger={`low-${insightDays}`}><EmptyState icon="insights" title="Keep tracking" body={`${insightDays} of 3 days recorded. A few more days makes these patterns useful.`} theme={theme} /></AnimatedCue> : <><View onLayout={(event) => setHeatWidth(event.nativeEvent.layout.width)}>{heatSize > 0 ? heatRows.map((row, rowIndex) => <View key={rowIndex} style={{ flexDirection: 'row', justifyContent: row.length === 7 ? 'space-between' : 'flex-start', gap: row.length === 7 ? 0 : heatGap, marginTop: rowIndex === 0 ? 0 : heatGap }}>{row.map((cell) => <TouchableOpacity key={cell.index} style={{ width: heatSize, height: heatSize, borderRadius: 5, backgroundColor: heatColor(cell.status, theme) }} onPress={() => { setDrafts((current) => ({ ...current, selectedDay: cell.index })); setSheet('day'); }} />)}</View>) : null}</View>
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-end', gap: 6, marginTop: 12 }}><AppText style={[styles.itemSub, { color: theme.muted }]}>saved</AppText>{[theme.heat.savedHigh, theme.heat.near, theme.heat.over, theme.heat.overHigh].map((c) => <View key={c} style={{ width: 13, height: 13, borderRadius: 4, backgroundColor: c }} />)}<AppText style={[styles.itemSub, { color: theme.muted }]}>over</AppText></View>
           <View style={{ flexDirection: 'row', gap: 12, marginTop: 14 }}>
             <View style={[styles.statMini, { backgroundColor: theme.surface2 }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 4, fontSize: 11 }]}>Spent most</AppText><AppText style={[styles.amount, { color: theme.text, textAlign: 'left' }]}>{spentMost >= 0 ? `${dayLabel(spentMost)} · ${usd(chartHistory[spentMost])}` : '—'}</AppText></View>
             <View style={[styles.statMini, { backgroundColor: theme.surface2 }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0, marginBottom: 4, fontSize: 11 }]}>Best saving day</AppText><AppText style={[styles.amount, { color: theme.text, textAlign: 'left' }]}>{savedMost >= 0 ? `${dayLabel(savedMost)} · ${usd(chartHistory[savedMost])}` : '—'}</AppText></View>
-          </View>
+          </View></>}
         </View>
         <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}>
           <AppText style={[styles.itemTitle, { color: theme.text, fontSize: 14, marginBottom: 12 }]}>Export data</AppText>
@@ -818,12 +943,15 @@ export default function App() {
   }
 
   function renderSettings() {
+    const rateCheckLabel = model.exchangeRateLastFetchedDay
+      ? `Last checked ${model.exchangeRateLastFetchedDay}`
+      : 'Checks when the app opens';
     const rows: readonly [string, string, Sheet | 'categories', IconName][] = [
       ['Monthly income', `${amountLabel(model.salary, model.salaryCur)} / month`, 'income', 'account-balance-wallet'],
       ['Rent & utilities', model.rent + model.utilities > 0 ? `${usd(model.rent + model.utilities)} · due ${ordinal(model.rentDue)}` : 'Not set', 'fixed', 'receipt-long'],
       ['Loan repayment', model.loan > 0 ? `${usd(model.loan)} · due ${ordinal(model.loanDue)}` : 'No loan', 'loan', 'savings'],
       ['Budgeting method', model.method === 'balanced' ? 'Balanced (50/30/20)' : model.method === 'saver' ? 'Saver (40/30/30)' : `Custom (${model.custom.needs}/${model.custom.wants}/${model.custom.save})`, 'method', 'pie-chart'],
-      ['Currencies', `USD · KHR (1$ = ${khr(model.rate)})`, 'currency', 'currency-exchange'],
+      ['Currencies', `Auto daily USD/KHR · $1 = ${khr(model.rate)} · ${rateCheckLabel}`, 'currency', 'currency-exchange'],
       ['Categories', `${model.categories.length} categories`, 'categories', 'grid-view'],
       ['Daily reminder', formatClock(model.notify), 'reminder', 'schedule'],
     ];
@@ -843,17 +971,23 @@ export default function App() {
   function renderSheet() {
     return (
       <Modal visible={sheet !== null} transparent animationType="slide" onRequestClose={() => setSheet(null)}>
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
           <Pressable style={styles.scrim} onPress={() => setSheet(null)}>
             <Pressable style={[styles.sheet, { backgroundColor: theme.page }]}>
             <View style={[styles.grab, { backgroundColor: theme.faint }]} />
             <View style={[styles.headerRow, { marginBottom: 4 }]}><AppText style={[styles.sheetTitle, { color: theme.text }]}>{sheet === 'category' && drafts.categoryEditKey ? 'Edit category' : sheetTitle(sheet)}</AppText><TouchableOpacity style={[styles.iconButton, { backgroundColor: theme.surface, borderColor: theme.line }]} onPress={() => setSheet(null)}><MaterialIcons name="close" size={20} color={theme.muted} /></TouchableOpacity></View>
-              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'} contentContainerStyle={{ paddingBottom: 48 }}>
+              <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'ios' ? 'interactive' : 'none'} contentContainerStyle={{ paddingBottom: 120 }}>
             {sheet === 'income' ? <View><SheetInput label="Monthly salary" value={String(model.salary)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, salary: Number(value) || 0 }))} /><AppText style={[styles.itemSub, { color: theme.muted, marginTop: 7 }]}>{model.salaryCur === 'KHR' ? `≈ ${usd(model.salary / model.rate)}` : `≈ ${khr(model.salary * model.rate)}`}</AppText><AppText style={[styles.label, { color: theme.muted }]}>Currency</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{(['USD', 'KHR'] as Currency[]).map((cur) => <TouchableOpacity key={cur} style={[styles.segmentButton, model.salaryCur === cur && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, salaryCur: cur }))}><AppText style={[styles.segmentText, { color: model.salaryCur === cur ? theme.text : theme.muted }]}>{cur === 'USD' ? 'USD ($)' : 'KHR (៛)'}</AppText></TouchableOpacity>)}</View></View> : null}
             {sheet === 'fixed' ? <View><MoneyField label="Rent" initialAmount={model.rent} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rent: value }))} /><MoneyField label="Utilities (monthly avg)" initialAmount={model.utilities} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, utilities: value }))} /><DueDayPicker label="Both due each month" value={model.rentDue} theme={theme} onChange={(day) => updateModel((current) => ({ ...current, rentDue: day }))} /></View> : null}
             {sheet === 'loan' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Loan</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}><TouchableOpacity style={[styles.segmentButton, model.loan <= 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: 0, paidBills: { ...current.paidBills, loan: true } }))}><AppText style={[styles.segmentText, { color: model.loan <= 0 ? theme.text : theme.muted }]}>No loan</AppText></TouchableOpacity><TouchableOpacity style={[styles.segmentButton, model.loan > 0 && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, loan: current.loan > 0 ? current.loan : 50, paidBills: { ...current.paidBills, loan: false } }))}><AppText style={[styles.segmentText, { color: model.loan > 0 ? theme.text : theme.muted }]}>I have a loan</AppText></TouchableOpacity></View>{model.loan > 0 ? <><MoneyField label="Monthly repayment" initialAmount={model.loan} rate={model.rate} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, loan: value }))} /><DueDayPicker label="Due each month" value={model.loanDue} theme={theme} onChange={(day) => updateModel((current) => ({ ...current, loanDue: day }))} /></> : <AppText style={[styles.help, { color: theme.muted }]}>No loan payment will show in Coming up.</AppText>}</View> : null}
             {sheet === 'method' ? <BudgetMethodPicker method={model.method} custom={model.custom} theme={theme} onSelect={(mode) => updateModel((current) => ({ ...current, method: mode }))} onCustomChange={(part, value) => updateModel((current) => ({ ...current, custom: { ...current.custom, [part]: value } }))} /> : null}
-            {sheet === 'currency' ? <View><AppText style={[styles.label, { color: theme.muted }]}>Base currency — used for the home budget display</AppText><View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{(['USD', 'KHR'] as Currency[]).map((cur) => <TouchableOpacity key={cur} style={[styles.segmentButton, model.baseCur === cur && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, baseCur: cur }))}><AppText style={[styles.segmentText, { color: model.baseCur === cur ? theme.text : theme.muted }]}>{cur === 'USD' ? 'USD ($)' : 'KHR (៛)'}</AppText></TouchableOpacity>)}</View><SheetInput label="Conversion rate — KHR per $1" value={String(model.rate)} theme={theme} onChange={(value) => updateModel((current) => ({ ...current, rate: Number(value) || RATE }))} /></View> : null}
+            {sheet === 'currency' ? <View>
+              <AppText style={[styles.label, { color: theme.muted }]}>Base currency — used for the home budget display</AppText>
+              <View style={[styles.segment, { backgroundColor: theme.surface2 }]}>{(['USD', 'KHR'] as Currency[]).map((cur) => <TouchableOpacity key={cur} style={[styles.segmentButton, model.baseCur === cur && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => updateModel((current) => ({ ...current, baseCur: cur }))}><AppText style={[styles.segmentText, { color: model.baseCur === cur ? theme.text : theme.muted }]}>{cur === 'USD' ? 'USD ($)' : 'KHR (៛)'}</AppText></TouchableOpacity>)}</View>
+              <SheetInput label="Conversion rate — KHR per $1" value={String(model.rate)} theme={theme} onChange={(value) => updateModel((current) => { const nextRate = Number(value); return { ...current, rate: Number.isFinite(nextRate) && nextRate > 0 ? nextRate : RATE, exchangeRateSource: 'Manual override' }; })} />
+              <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 8 }]}>Auto-checks once per day from {USD_TO_KHR_RATE_SOURCE.name}. If you’re offline or the data is missing, Luy Khnom keeps this value.</AppText>
+              <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 4 }]}>{model.exchangeRateLastFetchedDay ? `Last checked ${model.exchangeRateLastFetchedDay}` : 'Not checked yet'} · Current source: {model.exchangeRateSource}</AppText>
+            </View> : null}
             {sheet === 'reminder' ? <ReminderTimePicker value={model.notify} theme={theme} open={timePickerOpen} onOpenChange={setTimePickerOpen} onChange={(value) => updateModel((current) => ({ ...current, notify: value }))} onPreview={previewNotification} /> : null}
             {sheet === 'category' ? <View>
               <View style={[styles.headerRow, { marginTop: 14, gap: 12 }]}><View style={[styles.bubbleLarge, { backgroundColor: `${drafts.categoryColor}22` }]}><Glyph name={drafts.categoryIcon} size={27} color={drafts.categoryColor} /></View><TextInput style={[styles.input, { flex: 1, fontSize: 18, backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} placeholder="Category name" placeholderTextColor={theme.faint} value={drafts.categoryName} onChangeText={(value) => setDrafts((current) => ({ ...current, categoryName: value }))} /></View>
@@ -873,7 +1007,26 @@ export default function App() {
               {monthExpenses.length === 0 ? <EmptyState icon="calendar-month" title="No transactions this month" body="Start recording expenses and this month will fill itself in." theme={theme} /> : null}
             </View> : null}
             {sheet === 'day' ? <View><View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line }]}><AppText style={[styles.label, { color: theme.muted, marginTop: 0 }]}>Spent on {selectedDayDate}</AppText><AppText style={[styles.parsedAmount, { color: theme.text, fontSize: 26 }]}>{usd(chartHistory[selectedDayIndex] ?? 0)}</AppText></View>{selectedDayExpenses.map((expense) => { const cat = categoryFor(model.categories, expense.cat); return <TouchableOpacity key={expense.id} style={[styles.expenseRow, { borderColor: theme.line }]} onPress={() => openEntrySheet(expense)}><View style={[styles.bubble, { backgroundColor: `${cat.color}22` }]}><Glyph name={cat.icon} color={cat.color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{expense.name}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{cat.label} · {expense.time}</AppText>{expense.note ? <AppText style={[styles.itemNote, { color: theme.faint }]}>{expense.note}</AppText> : null}</View><AppText style={[styles.amount, { color: theme.text }]}>{amountLabel(expense.amount, expense.cur)}</AppText></TouchableOpacity>; })}{selectedDayExpenses.length === 0 ? <EmptyState icon="receipt-long" title="No transactions this day" body="Expenses saved for this date will show up here." theme={theme} /> : null}</View> : null}
-            {sheet && ['income', 'fixed', 'loan', 'method', 'currency', 'reminder'].includes(sheet) ? <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={() => setSheet(null)}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Done</AppText></TouchableOpacity> : null}
+            {sheet === 'formula' ? <View>
+              <AppText style={[styles.itemSub, { color: theme.muted }]}>How today’s safe-to-spend amount is calculated.</AppText>
+              <View style={[styles.card, { backgroundColor: theme.surface, borderColor: theme.line, marginTop: 14 }]}>
+                <Row label="Monthly income" value={formatMoney0(budget.salaryUsd)} theme={theme} />
+                <Row label="Needs split" value={`${method.needsPct}%`} theme={theme} />
+                <Row label="Wants split" value={`${method.wantsPct}%`} theme={theme} />
+                <Row label="Savings first" value={`−${formatMoney0(budget.savingsTargetUsd)}`} theme={theme} />
+                <Row label="Fixed costs" value={`−${formatMoney0(budget.fixedUsd)}`} theme={theme} />
+                <View style={{ height: 1, backgroundColor: theme.line, marginVertical: 10 }} />
+                <Row label="Free this month" value={formatMoney0(budget.spendableMonthUsd)} theme={theme} strong />
+                <Row label="Base per day" value={formatMoney(budget.baseDailyUsd)} theme={theme} />
+                <Row label="Rolled from yesterday" value={formatMoney(rolloverYesterday)} theme={theme} />
+                <Row label="Spent today" value={`−${formatMoney(budget.spentTodayUsd)}`} theme={theme} />
+                <View style={{ height: 1, backgroundColor: theme.line, marginVertical: 10 }} />
+                <Row label={budget.leftTodayUsd.amountMinor < 0 ? 'Over today' : 'Left today'} value={formatMoney(budget.leftTodayUsd)} theme={theme} strong />
+                <Row label="Tomorrow at this pace" value={formatMoney(budget.tomorrowUsd)} theme={theme} />
+              </View>
+              <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 10 }]}>Rollover uses unused safe-to-spend from yesterday. Overspending reduces tomorrow instead of hiding the debt.</AppText>
+            </View> : null}
+            {sheet && ['income', 'fixed', 'loan', 'method', 'currency', 'reminder', 'formula'].includes(sheet) ? <TouchableOpacity style={[styles.button, { backgroundColor: theme.primary, marginTop: 22 }]} onPress={() => setSheet(null)}><MaterialIcons name="check-circle" size={20} color="#fff" /><AppText style={styles.buttonText}>Done</AppText></TouchableOpacity> : null}
               </ScrollView>
             </Pressable>
           </Pressable>
@@ -895,12 +1048,37 @@ export default function App() {
     if (model.screen === 'goals') content = renderGoals();
     if (model.screen === 'insights') content = renderInsights();
     if (model.screen === 'settings') content = renderSettings();
+    const screenKey = model.screen === 'detail' ? `${model.screen}:${selectedCategory.key}` : model.screen;
     screen = (
       <SafeAreaView style={[styles.safe, { backgroundColor: theme.page }]}>
         <StatusBar style={model.dark ? 'light' : 'dark'} />
-        <View key={model.screen} style={{ flex: 1 }}>{content}</View>
+        <View key={screenKey} style={{ flex: 1 }}>{content}</View>
         {['home', 'categories', 'insights', 'settings'].includes(model.screen) ? <BottomNav screen={model.screen} theme={theme} onGo={go} /> : null}
-        {toast ? <View style={[styles.toast, { backgroundColor: theme.text }]}><MaterialIcons name="check-circle" size={18} color={theme.green} /><AppText style={[styles.toastText, { color: theme.page }]}>{toast}</AppText></View> : null}
+        {toast ? <View style={[styles.toast, { backgroundColor: theme.text }]}><MaterialIcons name="check-circle" size={18} color={theme.green} /><AppText style={[styles.toastText, { color: theme.page }]}>{toast.message}</AppText>{toast.action ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={toast.actionLabel ?? 'Undo'} onPress={() => { const action = toast.action; setToast(null); action?.(); }} style={{ paddingVertical: 2, paddingLeft: 6 }}><AppText style={[styles.toastText, { color: theme.green }]}>{toast.actionLabel ?? 'Undo'}</AppText></TouchableOpacity> : null}</View> : null}
+        <Modal visible={pendingRestore !== null} transparent animationType="fade" onRequestClose={() => setPendingRestore(null)}>
+          <View style={styles.celebrateScrim}>
+            <View style={[styles.celebrateCard, { backgroundColor: theme.surface, borderColor: theme.line, borderWidth: 1, alignItems: 'stretch' }]}>
+              <View style={[styles.celebrateIcon, { backgroundColor: theme.primaryWash, alignSelf: 'center' }]}><MaterialIcons name="restore" size={34} color={theme.primary} /></View>
+              <AppText style={[styles.celebrateTitle, { color: theme.text }]}>Restore backup?</AppText>
+              <AppText style={[styles.celebrateBody, { color: theme.muted }]}>{pendingRestore?.preview.backupDate ? `Backup from ${pendingRestore.preview.backupDate}` : 'Backup date unavailable'}</AppText>
+              <AnimatedCue trigger={pendingRestore?.preview.backupDate ?? 'restore-preview'} distance={6}>
+                <View style={[styles.card, { backgroundColor: theme.surface2, borderColor: theme.line, marginTop: 18, shadowOpacity: 0, elevation: 0 }]}>
+                  {[
+                    ['Categories', pendingRestore?.preview.counts.categories ?? 0],
+                    ['Expenses', pendingRestore?.preview.counts.expenses ?? 0],
+                    ['Goals', pendingRestore?.preview.counts.goals ?? 0],
+                    ['Borrowed-money items', pendingRestore?.preview.counts.ious ?? 0],
+                  ].map(([label, count]) => <Row key={label} label={String(label)} value={String(count)} theme={theme} />)}
+                </View>
+              </AnimatedCue>
+              <AppText style={[styles.itemSub, { color: theme.muted, textAlign: 'center', marginTop: 12 }]}>This replaces current data on this device.</AppText>
+              <View style={{ flexDirection: 'row', gap: 12, marginTop: 22 }}>
+                <AnimatedPressable accessibilityRole="button" style={[styles.button, { flex: 1, backgroundColor: theme.surface2 }]} contentStyle={styles.buttonContent} onPress={() => setPendingRestore(null)}><AppText style={[styles.buttonText, { color: theme.text }]}>Cancel</AppText></AnimatedPressable>
+                <AnimatedPressable accessibilityRole="button" style={[styles.button, { flex: 1, backgroundColor: theme.primary }]} contentStyle={styles.buttonContent} onPress={restorePendingBackup}><AppText style={styles.buttonText}>Restore</AppText></AnimatedPressable>
+              </View>
+            </View>
+          </View>
+        </Modal>
         <Modal visible={celebrate !== null} transparent animationType="fade" onRequestClose={() => setCelebrate(null)}>
           <View style={styles.celebrateScrim}>
             <View style={[styles.celebrateCard, { backgroundColor: theme.surface, borderColor: theme.line, borderWidth: 1 }]}>
@@ -916,6 +1094,14 @@ export default function App() {
     );
   }
 
-  return <SafeAreaProvider>{screen}</SafeAreaProvider>;
+  return screen;
+}
+
+export default function App() {
+  return (
+    <SafeAreaProvider>
+      <AppContent />
+    </SafeAreaProvider>
+  );
 }
 

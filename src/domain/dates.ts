@@ -146,7 +146,7 @@ export function daysRemainingInMonth(day: string): number {
 function expenseDate(expense: object): string | null | undefined {
   if (!('date' in expense)) return undefined;
   const date = expense.date;
-  return typeof date === 'string' || date === null ? date : undefined;
+  return typeof date === 'string' ? date : date === null ? null : undefined;
 }
 export function isIsoDayInMonth(day: string | null | undefined, month: string): day is IsoDayString {
   assertIsoMonth(month);

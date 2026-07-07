@@ -89,5 +89,6 @@ export function sheetTitle(sheet: Sheet) {
   if (sheet === 'goal') return 'New goal';
   if (sheet === 'day') return 'Day view';
   if (sheet === 'month') return 'This month';
+  if (sheet === 'formula') return 'Daily budget';
   return '';
 }

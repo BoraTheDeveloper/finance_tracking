@@ -27,12 +27,14 @@ export const DEFAULT_APP_CATEGORIES: AppModel['categories'] = [
 
 export const INITIAL_MODEL: AppModel = {
   onboarded: false,
-  onbStep: 1,
+  onbStep: 0,
   screen: 'onboarding',
   dark: false,
   salary: 0,
   salaryCur: 'USD',
   rate: RATE,
+  exchangeRateLastFetchedDay: null,
+  exchangeRateSource: 'Manual setup',
   rent: 0,
   utilities: 0,
   loan: 0,

@@ -3,6 +3,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 
 import type { Screen } from '../app/types';
 import type { Theme } from '../theme/theme';
+import { AnimatedPressable } from './AnimatedPressable';
 import { AppText } from './AppText';
 import type { IconName } from './icons';
 import { styles } from './styles';
@@ -15,7 +16,7 @@ export const NAV_ITEMS: readonly (readonly [Screen, IconName, string])[] = [
 ];
 
 export function BottomNav({ screen, theme, onGo }: { screen: Screen; theme: Theme; onGo: (screen: Screen) => void }) {
-  return <View style={[styles.nav, { backgroundColor: theme.surface, borderColor: theme.line }]}>{NAV_ITEMS.slice(0, 2).map((item) => <NavItem key={item[0]} item={item} active={screen === item[0]} theme={theme} onGo={onGo} />)}<TouchableOpacity style={[styles.fab, { backgroundColor: theme.primary, shadowColor: theme.primary, shadowOpacity: 0.4, shadowRadius: 16, shadowOffset: { width: 0, height: 10 }, elevation: 8 }]} onPress={() => onGo('add')}><MaterialIcons name="add" size={28} color="#fff" /></TouchableOpacity>{NAV_ITEMS.slice(2).map((item) => <NavItem key={item[0]} item={item} active={screen === item[0]} theme={theme} onGo={onGo} />)}</View>;
+  return <View style={[styles.nav, { backgroundColor: theme.surface, borderColor: theme.line }]}>{NAV_ITEMS.slice(0, 2).map((item) => <NavItem key={item[0]} item={item} active={screen === item[0]} theme={theme} onGo={onGo} />)}<AnimatedPressable accessibilityRole="button" accessibilityLabel="Add expense" style={[styles.fab, { backgroundColor: theme.primary, shadowColor: theme.primary, shadowOpacity: 0.4, shadowRadius: 16, shadowOffset: { width: 0, height: 10 }, elevation: 8 }]} onPress={() => onGo('add')}><MaterialIcons name="add" size={28} color="#fff" /></AnimatedPressable>{NAV_ITEMS.slice(2).map((item) => <NavItem key={item[0]} item={item} active={screen === item[0]} theme={theme} onGo={onGo} />)}</View>;
 }
 
 export function NavItem({ item, active, theme, onGo }: { item: readonly [Screen, IconName, string]; active: boolean; theme: Theme; onGo: (screen: Screen) => void }) {
