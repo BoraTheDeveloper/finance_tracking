@@ -118,6 +118,7 @@ export const styles = StyleSheet.create({
   swatch: { width: 38, height: 38, borderRadius: 12, borderWidth: 3, borderColor: 'transparent' },
   curToggle: { flexDirection: 'row', borderRadius: 14, padding: 4, gap: 2 },
   curToggleButton: { width: 42, borderRadius: 10, paddingVertical: 12, alignItems: 'center' },
-  iconPick: { width: 46, height: 46, borderRadius: 14, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
+  iconGrid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  iconPick: { width: 52, height: 52, borderRadius: 16, borderWidth: 1.5, alignItems: 'center', justifyContent: 'center' },
   pickWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
 });
