@@ -33,8 +33,11 @@ export function normalizeLoadedModel(state: PersistedAppModel | undefined, today
   const raw = state ?? {};
   const expenses = (raw.expenses ?? INITIAL_MODEL.expenses).map((expense) => {
     const date = expense.date;
+    const kind = expense.kind === 'income' ? 'income' as const : 'expense' as const;
     return {
       ...expense,
+      cat: kind === 'income' ? expense.cat || 'income' : expense.cat,
+      kind,
       date: typeof date === 'string' && isIsoDay(date) ? date : today,
     };
   });

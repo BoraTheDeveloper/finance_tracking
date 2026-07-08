@@ -3,10 +3,13 @@ import { BALANCED, SAVER, summarizeBudget } from '../domain/budget';
 import { daysRemainingInMonth, filterExpensesByDay, filterExpensesByMonth, isoMonthFromDay } from '../domain/dates';
 import { money } from '../domain/money';
 import { amountUsd } from './formatters';
+import { isExpenseTransaction, isIncomeTransaction } from '../domain/transactions';
 
 export function summarizeModelForDay(model: AppModel, day: string, rolloverUsd: number) {
   const month = isoMonthFromDay(day);
-  const monthExpenses = filterExpensesByMonth(model.expenses, month);
+  const monthTransactions = filterExpensesByMonth(model.expenses, month);
+  const monthExpenses = monthTransactions.filter(isExpenseTransaction);
+  const monthIncomeUsd = monthTransactions.filter(isIncomeTransaction).reduce((sum, transaction) => sum + amountUsd(transaction.amount, transaction.cur, model.rate), 0);
   const monthSpendByCategory = new Map<string, number>();
   monthExpenses.forEach((expense) => {
     monthSpendByCategory.set(expense.cat, (monthSpendByCategory.get(expense.cat) ?? 0) + amountUsd(expense.amount, expense.cur, model.rate));
@@ -16,7 +19,7 @@ export function summarizeModelForDay(model: AppModel, day: string, rolloverUsd: 
     : model.method === 'balanced' ? BALANCED : SAVER;
 
   return summarizeBudget({
-    salary: money(model.salaryCur === 'USD' ? Math.round(model.salary * 100) : Math.round(model.salary), model.salaryCur),
+    salary: money(Math.round((amountUsd(model.salary, model.salaryCur, model.rate) + monthIncomeUsd) * 100), 'USD'),
     fixedCosts: [money(Math.round(model.rent * 100), 'USD'), money(Math.round(model.utilities * 100), 'USD'), money(Math.round(model.loan * 100), 'USD')],
     savedSoFar: money(Math.round(model.goals.reduce((sum, goal) => sum + amountUsd(goal.saved, goal.cur, model.rate), 0) * 100), 'USD'),
     categorySpend: model.categories.map((category) => ({
@@ -24,7 +27,7 @@ export function summarizeModelForDay(model: AppModel, day: string, rolloverUsd: 
       spent: money(Math.round((monthSpendByCategory.get(category.key) ?? 0) * 100), 'USD' as const),
       budget: money(Math.round(category.budgetUsd * 100), 'USD' as const),
     })),
-    todayExpenses: filterExpensesByDay(model.expenses, day).map((expense) => money(expense.cur === 'USD' ? Math.round(expense.amount * 100) : Math.round(expense.amount), expense.cur)),
+    todayExpenses: filterExpensesByDay(model.expenses, day).filter(isExpenseTransaction).map((expense) => money(expense.cur === 'USD' ? Math.round(expense.amount * 100) : Math.round(expense.amount), expense.cur)),
     method,
     rate: { khrPerUsd: model.rate },
     daysLeftIncludingToday: daysRemainingInMonth(day),

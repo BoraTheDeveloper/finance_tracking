@@ -5,6 +5,8 @@ import { DEFAULT_CATEGORIES, INITIAL_TODAY } from '../src/domain/fixtures';
 import { INITIAL_MODEL } from '../src/app/initialState';
 import { convertMoney, formatMoney, money, parseMoney } from '../src/domain/money';
 import { bestAndWorst, buildHeatmap } from '../src/domain/insights';
+import { summarizeModelForDay } from '../src/app/budgetSummary';
+import { spentUsdForDay, spentUsdForMonth } from '../src/domain/dates';
 
 describe('money', () => {
   it('stores USD cents and KHR whole riel', () => {
@@ -81,6 +83,84 @@ describe('budget summary', () => {
     expect(formatMoney(summary.dailyBudgetUsd)).toBe('$19.97');
     expect(formatMoney(summary.spentTodayUsd)).toBe('$8.48');
     expect(formatMoney(summary.leftTodayUsd)).toBe('$11.49');
+  });
+});
+
+describe('income transaction totals', () => {
+  it('excludes income transactions from day and month spend totals while keeping legacy transactions spendable', () => {
+    const transactions = [
+      { id: 'legacy-lunch', date: '2026-07-05', amount: 6, cur: 'USD' as const },
+      { id: 'bus', date: '2026-07-05', amount: 4000, cur: 'KHR' as const, kind: 'expense' as const },
+      { id: 'cash-gift', date: '2026-07-05', amount: 20, cur: 'USD' as const, kind: 'income' as const },
+      { id: 'bonus', date: '2026-07-06', amount: 12, cur: 'USD' as const, kind: 'income' as const },
+    ];
+
+    expect(spentUsdForDay(transactions, '2026-07-05', 4000)).toBe(7);
+    expect(spentUsdForMonth(transactions, '2026-07', 4000)).toBe(7);
+  });
+
+  it('adds monthly income to spendable budget without counting it as today spend', () => {
+    const summary = summarizeModelForDay({
+      ...INITIAL_MODEL,
+      salary: 1000,
+      salaryCur: 'USD',
+      rate: 4000,
+      rent: 100,
+      utilities: 50,
+      loan: 0,
+      method: 'balanced',
+      categories: [
+        { key: 'food', label: 'Food', icon: 'restaurant', color: '#ef8b4f', spentUsd: 0, budgetUsd: 500 },
+      ],
+      expenses: [
+        {
+          id: 'legacy-lunch',
+          name: 'Lunch',
+          cat: 'food',
+          amount: 10,
+          cur: 'USD',
+          time: '12:00',
+          date: '2026-07-10',
+        },
+        {
+          id: 'bus',
+          name: 'Bus',
+          cat: 'food',
+          amount: 8000,
+          cur: 'KHR',
+          time: '13:00',
+          date: '2026-07-10',
+          kind: 'expense',
+        },
+        {
+          id: 'cash-gift',
+          name: 'Cash gift',
+          cat: 'income',
+          amount: 100,
+          cur: 'USD',
+          time: '09:00',
+          date: '2026-07-10',
+          kind: 'income',
+        },
+        {
+          id: 'bonus',
+          name: 'Bonus',
+          cat: 'income',
+          amount: 40000,
+          cur: 'KHR',
+          time: '09:00',
+          date: '2026-07-06',
+          kind: 'income',
+        },
+      ],
+    }, '2026-07-10', 5);
+
+    expect(summary.salaryUsd).toEqual(money(111000, 'USD'));
+    expect(summary.savingsTargetUsd).toEqual(money(22200, 'USD'));
+    expect(summary.spendableMonthUsd).toEqual(money(73800, 'USD'));
+    expect(summary.spentMonthUsd).toEqual(money(1200, 'USD'));
+    expect(summary.spentTodayUsd).toEqual(money(1200, 'USD'));
+    expect(summary.dailyBudgetUsd).toEqual(money(3800, 'USD'));
   });
 });
 

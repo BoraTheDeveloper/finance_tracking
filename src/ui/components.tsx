@@ -1,4 +1,4 @@
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type ReactNode } from 'react';
 import { Animated, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
 import { MaterialIcons } from '@expo/vector-icons';
 
@@ -182,6 +182,91 @@ export function SetupDot({
         },
       ]}
     />
+  );
+}
+
+export function AnimatedSplitBar({
+  needsPct,
+  wantsPct,
+  savePct,
+  needsColor,
+  wantsColor,
+  saveColor,
+}: {
+  needsPct: number;
+  wantsPct: number;
+  savePct: number;
+  needsColor: string;
+  wantsColor: string;
+  saveColor: string;
+}) {
+  const reducedMotion = useReducedMotion();
+  const [width, setWidth] = useState(0);
+  const needs = useRef(new Animated.Value(needsPct)).current;
+  const wants = useRef(new Animated.Value(wantsPct)).current;
+  const save = useRef(new Animated.Value(savePct)).current;
+
+  useEffect(() => {
+    const duration = shouldAnimate(reducedMotion, MOTION_DURATION.number) ? MOTION_DURATION.number : 0;
+    Animated.parallel([
+      Animated.timing(needs, { toValue: needsPct, duration, easing: MOTION_EASING.decelerate, useNativeDriver: false }),
+      Animated.timing(wants, { toValue: wantsPct, duration, easing: MOTION_EASING.decelerate, useNativeDriver: false }),
+      Animated.timing(save, { toValue: savePct, duration, easing: MOTION_EASING.decelerate, useNativeDriver: false }),
+    ]).start();
+  }, [needs, needsPct, reducedMotion, save, savePct, wants, wantsPct]);
+
+  return (
+    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={{ flexDirection: 'row', height: 14, borderRadius: 99, overflow: 'hidden' }}>
+      <Animated.View style={{ width: needs.interpolate({ inputRange: [0, 100], outputRange: [0, width] }), backgroundColor: needsColor }} />
+      <Animated.View style={{ width: wants.interpolate({ inputRange: [0, 100], outputRange: [0, width] }), backgroundColor: wantsColor }} />
+      <Animated.View style={{ width: save.interpolate({ inputRange: [0, 100], outputRange: [0, width] }), backgroundColor: saveColor }} />
+    </View>
+  );
+}
+
+export function ReceiptToRingCue({ trigger, theme }: { trigger: string | null; theme: Theme }) {
+  const reducedMotion = useReducedMotion();
+  const motion = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (!trigger) return;
+    motion.stopAnimation();
+    if (!shouldAnimate(reducedMotion, MOTION_DURATION.celebration)) {
+      motion.setValue(1);
+      return;
+    }
+    motion.setValue(0);
+    Animated.timing(motion, {
+      toValue: 1,
+      duration: MOTION_DURATION.celebration,
+      easing: MOTION_EASING.gentle,
+      useNativeDriver: true,
+    }).start();
+  }, [motion, reducedMotion, trigger]);
+
+  if (!trigger) return null;
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        right: 62,
+        top: 118,
+        opacity: reducedMotion ? 0 : motion.interpolate({ inputRange: [0, 0.18, 0.78, 1], outputRange: [0, 1, 1, 0] }),
+        transform: reducedMotion
+          ? []
+          : [
+              { translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [44, 0] }) },
+              { translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [54, -28] }) },
+              { scale: motion.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0.92, 1, 0.78] }) },
+            ],
+      }}
+    >
+      <View style={[styles.bubble, { backgroundColor: theme.primaryWash, borderWidth: 1, borderColor: theme.line }]}>
+        <MaterialIcons name="receipt-long" size={22} color={theme.primary} />
+      </View>
+    </Animated.View>
   );
 }
 

@@ -169,12 +169,16 @@ export function amountUsd(expense: Pick<DatedExpense, 'amount' | 'cur'>, khrPerU
   return expense.cur === 'KHR' ? expense.amount / khrPerUsd : expense.amount;
 }
 
+function isSpendingRecord(expense: DatedExpense) {
+  return expense.kind !== 'income';
+}
+
 export function spentUsdForDay(expenses: readonly DatedExpense[], day: string, khrPerUsd = 4100): number {
-  return filterExpensesByDay(expenses, day).reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
+  return filterExpensesByDay(expenses, day).filter(isSpendingRecord).reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
 }
 
 export function spentUsdForMonth(expenses: readonly DatedExpense[], month: string, khrPerUsd = 4100): number {
-  return filterExpensesByMonth(expenses, month).reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
+  return filterExpensesByMonth(expenses, month).filter(isSpendingRecord).reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
 }
 
 export function appendTrimmedHistory(history: readonly number[], spentUsd: number, maxHistoryDays = MAX_HISTORY_DAYS): number[] {

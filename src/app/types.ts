@@ -1,6 +1,7 @@
 export type Currency = 'USD' | 'KHR';
 export type Screen = 'home' | 'add' | 'categories' | 'detail' | 'goals' | 'insights' | 'settings' | 'onboarding';
 export type BudgetMode = 'balanced' | 'saver' | 'custom';
+export type TransactionKind = 'expense' | 'income';
 export type Sheet = 'income' | 'fixed' | 'loan' | 'method' | 'currency' | 'reminder' | 'category' | 'entry' | 'iou' | 'goal' | 'day' | 'month' | 'formula' | null;
 
 export type Category = {
@@ -20,6 +21,7 @@ export type Expense = {
   cur: Currency;
   time: string;
   date: string;
+  kind?: TransactionKind;
   note?: string;
 };
 
@@ -78,6 +80,7 @@ export type AppModel = {
 export type Drafts = {
   addText: string;
   addNote: string;
+  transactionKind: TransactionKind;
   selectedCat: string;
   selectedExpenseId: string | null;
   entryCur: Currency;

@@ -61,6 +61,7 @@ export const INITIAL_MODEL: AppModel = {
 export const INITIAL_DRAFTS: Drafts = {
   addText: '',
   addNote: '',
+  transactionKind: 'expense',
   selectedCat: '',
   selectedExpenseId: null,
   entryCur: 'USD',

@@ -69,3 +69,50 @@ describe('default category migration', () => {
     expect(normalized.categories).toEqual(customCategories);
   });
 });
+
+describe('transaction kind migration', () => {
+  it('treats legacy persisted transactions without a kind as expenses', () => {
+    const normalized = normalizeLoadedModel({
+      expenses: [
+        {
+          id: 'legacy-lunch',
+          name: 'Lunch',
+          cat: 'food',
+          amount: 7,
+          cur: 'USD',
+          time: '12:00',
+          date: '2026-07-06',
+        },
+      ],
+    }, TODAY);
+
+    expect(normalized.expenses[0]).toMatchObject({
+      id: 'legacy-lunch',
+      kind: 'expense',
+      date: '2026-07-06',
+    });
+  });
+
+  it('preserves persisted income transaction kinds during normalization', () => {
+    const normalized = normalizeLoadedModel({
+      expenses: [
+        {
+          id: 'cash-gift',
+          name: 'Cash gift',
+          cat: 'income',
+          amount: 25,
+          cur: 'USD',
+          time: '09:00',
+          date: '2026-07-06',
+          kind: 'income',
+        },
+      ],
+    }, TODAY);
+
+    expect(normalized.expenses[0]).toMatchObject({
+      id: 'cash-gift',
+      kind: 'income',
+      date: '2026-07-06',
+    });
+  });
+});
