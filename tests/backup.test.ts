@@ -27,6 +27,7 @@ describe('app JSON backups', () => {
       expenses: [{ id: 'expense-1', date: '2026-07-06' }, { id: 'expense-2', date: '2026-07-07' }],
       goals: [{ id: 'goal-1' }],
       ious: [],
+      recurringPayments: [{ id: 'recurring-1' }],
     };
     const backup = parsePersistedBackup<typeof state>(stringifyPersistedBackup(state));
 
@@ -37,6 +38,7 @@ describe('app JSON backups', () => {
         expenses: 2,
         goals: 1,
         ious: 0,
+        recurringPayments: 1,
       },
     });
   });
@@ -57,6 +59,7 @@ describe('app JSON backups', () => {
         expenses: 3,
         goals: 0,
         ious: 0,
+        recurringPayments: 0,
       },
     });
   });
@@ -83,6 +86,7 @@ describe('app JSON backups', () => {
         expenses: 3,
         goals: 0,
         ious: 0,
+        recurringPayments: 0,
       },
     });
   });

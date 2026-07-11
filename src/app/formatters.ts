@@ -1,6 +1,10 @@
 import type { Currency, Goal, Sheet } from '../app/types';
 import type { Theme } from '../theme/theme';
 
+export function round2(amount: number) {
+  return Math.round(amount * 100) / 100;
+}
+
 export function usd(amount: number) {
   return `$${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
@@ -10,7 +14,7 @@ export function usd0(amount: number) {
 }
 
 export function khr(amount: number) {
-  return `${Math.round(amount).toLocaleString('en-US')}៛`;
+  return `${round2(amount).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}៛`;
 }
 
 export function amountUsd(amount: number, cur: Currency, rate: number) {
@@ -81,14 +85,16 @@ export function sheetTitle(sheet: Sheet) {
   if (sheet === 'fixed') return 'Rent & utilities';
   if (sheet === 'loan') return 'Loan repayment';
   if (sheet === 'method') return 'Budgeting method';
+  if (sheet === 'cycle') return 'Budget cycle';
   if (sheet === 'currency') return 'Currencies';
   if (sheet === 'reminder') return 'Daily reminder';
   if (sheet === 'category') return 'New category';
   if (sheet === 'entry') return 'Edit entry';
   if (sheet === 'iou') return 'Borrowed money';
   if (sheet === 'goal') return 'New goal';
+  if (sheet === 'recurring') return 'Recurring payments';
   if (sheet === 'day') return 'Day view';
-  if (sheet === 'month') return 'This month';
+  if (sheet === 'month') return 'Current cycle';
   if (sheet === 'formula') return 'Daily budget';
   return '';
 }

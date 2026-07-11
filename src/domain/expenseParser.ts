@@ -35,7 +35,8 @@ export function inferCategory(text: string): string {
 export function parseExpenseText(input: string): ParsedExpense {
   const text = input.trim();
   const lower = text.toLowerCase();
-  const match = lower.match(/(\d[\d,]*\.?\d*|\d*\.\d+)/);
+  const amountText = text.includes(',') ? text.split(',').slice(1).join(',').toLowerCase() : lower;
+  const match = amountText.match(/(\d[\d,]*\.?\d*|\d*\.\d+)/) ?? lower.match(/(\d[\d,]*\.?\d*|\d*\.\d+)/);
   const amountNumber = match ? Number(match[1].replace(/,/g, '')) : null;
   const currency = inferCurrency(lower, amountNumber);
   const labelPart = text.split(',')[0]?.trim() ?? '';

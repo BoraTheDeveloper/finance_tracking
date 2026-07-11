@@ -2,17 +2,24 @@ import { describe, expect, it } from 'vitest';
 import {
   appendTrimmedHistory,
   applyDateRollover,
+  budgetCycleEndForDay,
+  budgetCycleForDay,
+  budgetCycleKeyForDay,
+  budgetCycleStartForDay,
   daysInIsoMonth,
+  daysRemainingInBudgetCycle,
   daysRemainingInMonth,
   elapsedIsoDays,
+  filterExpensesByBudgetCycle,
   filterExpensesByDay,
   filterExpensesByMonth,
   isoDayFromDate,
   isoMonthFromDay,
+  normalizeBudgetCycleStartDay,
+  spentUsdForBudgetCycle,
   spentUsdForDay,
   spentUsdForMonth,
 } from '../src/domain/dates';
-
 const expenses = [
   { id: 'old', date: '2026-06-30', amount: 9, cur: 'USD' as const },
   { id: 'breakfast', date: '2026-07-05', amount: 2.5, cur: 'USD' as const },
@@ -34,6 +41,23 @@ describe('ISO day and month helpers', () => {
     expect(daysRemainingInMonth('2023-02-28')).toBe(1);
     expect(daysRemainingInMonth('2026-07-31')).toBe(1);
     expect(daysRemainingInMonth('2026-07-01')).toBe(31);
+  });
+
+  it('computes payday budget cycles that span calendar months', () => {
+    expect(normalizeBudgetCycleStartDay(5)).toBe(5);
+    expect(normalizeBudgetCycleStartDay(0)).toBe(1);
+    expect(budgetCycleStartForDay('2026-07-05', 5)).toBe('2026-07-05');
+    expect(budgetCycleEndForDay('2026-07-05', 5)).toBe('2026-08-04');
+    expect(budgetCycleStartForDay('2026-08-04', 5)).toBe('2026-07-05');
+    expect(budgetCycleEndForDay('2026-08-04', 5)).toBe('2026-08-04');
+    expect(budgetCycleKeyForDay('2026-08-04', 5)).toBe('2026-07');
+    expect(daysRemainingInBudgetCycle('2026-08-01', 5)).toBe(4);
+    expect(budgetCycleForDay('2026-08-05', 5)).toEqual({
+      key: '2026-08',
+      start: '2026-08-05',
+      end: '2026-09-04',
+      daysLeftIncludingToday: 31,
+    });
   });
 
   it('lists elapsed rollover days from the last active day up to but not including today', () => {
@@ -58,6 +82,11 @@ describe('expense date filtering and totals', () => {
   it('filters expenses by exact day and selected month', () => {
     expect(filterExpensesByDay(expenses, '2026-07-05').map((expense) => expense.id)).toEqual(['breakfast', 'bus']);
     expect(filterExpensesByMonth(expenses, '2026-07').map((expense) => expense.id)).toEqual(['breakfast', 'bus', 'lunch']);
+  });
+
+  it('filters and totals expenses in the budget cycle containing a day', () => {
+    expect(filterExpensesByBudgetCycle(expenses, '2026-08-01', 5).map((expense) => expense.id)).toEqual(['breakfast', 'bus', 'lunch', 'next-month']);
+    expect(spentUsdForBudgetCycle(expenses, '2026-08-01', 5, 4000)).toBe(20.5);
   });
 
   it('sums dated USD and KHR expenses for daily and monthly views', () => {
@@ -167,6 +196,39 @@ describe('daily and monthly rollover', () => {
     expect(result.paidBills).toEqual({});
     expect(result.swept).toBe(false);
     expect(result.lastActiveMonth).toBe('2026-07');
+  });
+
+  it('resets month-scoped state on a payday cycle boundary instead of calendar month', () => {
+    const carried = applyDateRollover({
+      today: '2026-08-01',
+      lastActiveDay: '2026-07-31',
+      lastActiveMonth: '2026-07',
+      budgetCycleStartDay: 5,
+      expenses,
+      history: [],
+      categories: [{ key: 'food', spentUsd: 12, swept: true }],
+      paidBills: { rent: true },
+      swept: true,
+    });
+    expect(carried.monthlyRolledOver).toBe(false);
+    expect(carried.lastActiveMonth).toBe('2026-07');
+    expect(carried.categories).toEqual([{ key: 'food', spentUsd: 12, swept: true }]);
+
+    const reset = applyDateRollover({
+      today: '2026-08-05',
+      lastActiveDay: '2026-08-04',
+      lastActiveMonth: '2026-07',
+      budgetCycleStartDay: 5,
+      expenses,
+      history: [],
+      categories: [{ key: 'food', spentUsd: 12, swept: true }],
+      paidBills: { rent: true },
+      swept: true,
+    });
+    expect(reset.monthlyRolledOver).toBe(true);
+    expect(reset.lastActiveMonth).toBe('2026-08');
+    expect(reset.categories).toEqual([{ key: 'food', spentUsd: 0, swept: false }]);
+    expect(reset.paidBills).toEqual({});
   });
 
   it('treats missing legacy activity markers as safe first launch state', () => {

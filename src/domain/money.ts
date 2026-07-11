@@ -74,7 +74,10 @@ export function addMoney(values: readonly Money[], currency: Currency, rate: Exc
 
 export function formatMoney(value: Money): string {
   if (value.currency === 'KHR') {
-    return `${Math.round(value.amountMinor).toLocaleString('en-US')}៛`;
+    return `${value.amountMinor.toLocaleString('en-US', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })}៛`;
   }
   return `$${(value.amountMinor / 100).toLocaleString('en-US', {
     minimumFractionDigits: 2,

@@ -39,6 +39,29 @@ describe('onboarding step migration', () => {
   });
 });
 
+describe('budget cycle migration', () => {
+  it('defaults missing or invalid cycle start days to the 1st', () => {
+    expect(INITIAL_MODEL.budgetCycleStartDay).toBe(1);
+    expect(normalizeLoadedModel(undefined, TODAY).budgetCycleStartDay).toBe(1);
+    expect(normalizeLoadedModel({ budgetCycleStartDay: 0 }, TODAY).budgetCycleStartDay).toBe(1);
+    expect(normalizeLoadedModel({ budgetCycleStartDay: 32 }, TODAY).budgetCycleStartDay).toBe(1);
+    expect(normalizeLoadedModel({ budgetCycleStartDay: 5 }, TODAY).budgetCycleStartDay).toBe(5);
+  });
+
+  it('normalizes the active cycle key from the budget cycle start day', () => {
+    expect(normalizeLoadedModel({ budgetCycleStartDay: 5, lastActiveMonth: null }, '2026-08-04').lastActiveMonth).toBe('2026-07');
+  });
+});
+
+describe('language migration', () => {
+  it('defaults old persisted state to English and preserves Khmer', () => {
+    expect(INITIAL_MODEL.language).toBe('en');
+    expect(normalizeLoadedModel(undefined, TODAY).language).toBe('en');
+    expect(normalizeLoadedModel({ language: 'km' }, TODAY).language).toBe('km');
+    expect(normalizeLoadedModel({ language: 'fr' }, TODAY).language).toBe('en');
+  });
+});
+
 describe('default category migration', () => {
   it('seeds legacy empty category state without creating personal records', () => {
     const normalized = normalizeLoadedModel({ defaultCategoriesSeeded: false, categories: [] }, TODAY);

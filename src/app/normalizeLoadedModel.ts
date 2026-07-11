@@ -1,25 +1,41 @@
-import type { AppModel, Expense } from './types';
+import type { AppModel, Expense, RecurringPayment } from './types';
 import { INITIAL_MODEL } from './initialState';
+import { isLanguage } from './i18n';
 import { rolloverUsdAfterElapsedDays } from './budgetSummary';
+import { buildFastEntryMemory } from './fastEntryMemory';
+import { normalizeDueDay } from '../domain/recurring';
 import {
   applyDateRollover,
+  budgetCycleKeyForDay,
   elapsedIsoDays,
   isIsoDay,
   isIsoMonth,
   isoDayFromDate,
-  isoMonthFromDay,
+  normalizeBudgetCycleStartDay,
 } from '../domain/dates';
 
 export type PersistedExpense = Omit<Expense, 'date'> & { date?: unknown };
-export type PersistedAppModel = Partial<Omit<AppModel, 'expenses' | 'lastActiveDay' | 'lastActiveMonth'>> & {
+export type PersistedRecurringPayment = Omit<RecurringPayment, 'amount' | 'cur' | 'dueDay'> & {
+  amount?: unknown;
+  cur?: unknown;
+  dueDay?: unknown;
+};
+export type PersistedAppModel = Partial<Omit<AppModel, 'expenses' | 'recurringPayments' | 'lastActiveDay' | 'lastActiveMonth' | 'budgetCycleStartDay' | 'language'>> & {
   expenses?: PersistedExpense[];
+  recurringPayments?: PersistedRecurringPayment[];
   lastActiveDay?: unknown;
   lastActiveMonth?: unknown;
+  budgetCycleStartDay?: unknown;
+  language?: unknown;
 };
 
 export const WELCOME_ONBOARDING_STEP = 0;
 export const FIRST_SETUP_ONBOARDING_STEP = 1;
 export const LAST_SETUP_ONBOARDING_STEP = 3;
+
+function round2(value: number) {
+  return Math.round(value * 100) / 100;
+}
 
 export function normalizeOnboardingStep(value: unknown) {
   if (typeof value !== 'number' || !Number.isInteger(value)) return WELCOME_ONBOARDING_STEP;
@@ -29,8 +45,9 @@ export function normalizeOnboardingStep(value: unknown) {
 }
 
 export function normalizeLoadedModel(state: PersistedAppModel | undefined, today = isoDayFromDate(new Date())): AppModel {
-  const todayMonth = isoMonthFromDay(today);
   const raw = state ?? {};
+  const budgetCycleStartDay = normalizeBudgetCycleStartDay(raw.budgetCycleStartDay);
+  const todayMonth = budgetCycleKeyForDay(today, budgetCycleStartDay);
   const expenses = (raw.expenses ?? INITIAL_MODEL.expenses).map((expense) => {
     const date = expense.date;
     const kind = expense.kind === 'income' ? 'income' as const : 'expense' as const;
@@ -41,6 +58,18 @@ export function normalizeLoadedModel(state: PersistedAppModel | undefined, today
       date: typeof date === 'string' && isIsoDay(date) ? date : today,
     };
   });
+  const recurringPayments = (raw.recurringPayments ?? INITIAL_MODEL.recurringPayments).map((payment) => {
+    const name = typeof payment.name === 'string' ? payment.name.trim() : '';
+    const amount = typeof payment.amount === 'number' && Number.isFinite(payment.amount) ? round2(payment.amount) : 0;
+    if (!name || amount <= 0) return null;
+    return {
+      id: typeof payment.id === 'string' && payment.id.trim() ? payment.id : `recurring-${name.toLocaleLowerCase().replace(/\s+/g, '-')}`,
+      name,
+      amount,
+      cur: payment.cur === 'KHR' ? 'KHR' as const : 'USD' as const,
+      dueDay: normalizeDueDay(payment.dueDay),
+    };
+  }).filter((payment): payment is RecurringPayment => payment !== null);
   const rawLastActiveDay = raw.lastActiveDay;
   const rawLastActiveMonth = raw.lastActiveMonth;
   const rawRolloverUsd = raw.rolloverUsd;
@@ -48,7 +77,8 @@ export function normalizeLoadedModel(state: PersistedAppModel | undefined, today
   const rawExchangeRateLastFetchedDay = raw.exchangeRateLastFetchedDay;
   const rawExchangeRateSource = raw.exchangeRateSource;
   const rawCategories = raw.categories;
-  const rate = typeof rawRate === 'number' && Number.isFinite(rawRate) && rawRate > 0 ? rawRate : INITIAL_MODEL.rate;
+  const language = isLanguage(raw.language) ? raw.language : INITIAL_MODEL.language;
+  const rate = typeof rawRate === 'number' && Number.isFinite(rawRate) && rawRate > 0 ? round2(rawRate) : INITIAL_MODEL.rate;
   const exchangeRateLastFetchedDay = typeof rawExchangeRateLastFetchedDay === 'string' && isIsoDay(rawExchangeRateLastFetchedDay)
     ? rawExchangeRateLastFetchedDay
     : INITIAL_MODEL.exchangeRateLastFetchedDay;
@@ -58,30 +88,37 @@ export function normalizeLoadedModel(state: PersistedAppModel | undefined, today
   const lastActiveDay = typeof rawLastActiveDay === 'string' && isIsoDay(rawLastActiveDay) ? rawLastActiveDay : today;
   const lastActiveMonth = typeof rawLastActiveMonth === 'string' && isIsoMonth(rawLastActiveMonth) ? rawLastActiveMonth : todayMonth;
   const shouldSeedDefaultCategories = raw.defaultCategoriesSeeded !== true && (!rawCategories || rawCategories.length === 0);
+  const categories = shouldSeedDefaultCategories ? INITIAL_MODEL.categories : rawCategories ?? INITIAL_MODEL.categories;
+  const fastEntryMemory = buildFastEntryMemory(expenses, categories);
   let next: AppModel = {
     ...INITIAL_MODEL,
     ...raw,
     custom: { ...INITIAL_MODEL.custom, ...(raw.custom ?? {}) },
     defaultCategoriesSeeded: true,
-    categories: shouldSeedDefaultCategories ? INITIAL_MODEL.categories : rawCategories ?? INITIAL_MODEL.categories,
+    categories,
     expenses,
     goals: raw.goals ?? INITIAL_MODEL.goals,
     ious: raw.ious ?? INITIAL_MODEL.ious,
+    recurringPayments,
     history: (raw.history ?? INITIAL_MODEL.history).filter(Number.isFinite).slice(-35),
     rolloverUsd: typeof rawRolloverUsd === 'number' && Number.isFinite(rawRolloverUsd) ? rawRolloverUsd : 0,
     onbStep: normalizeOnboardingStep(raw.onbStep),
     paidBills: raw.paidBills ?? {},
+    fastEntryMemory,
     lastActiveDay,
     lastActiveMonth,
+    budgetCycleStartDay,
     rate,
     exchangeRateLastFetchedDay,
     exchangeRateSource,
+    language,
   };
 
   const rollover = applyDateRollover({
     today,
     lastActiveDay: next.lastActiveDay,
     lastActiveMonth: next.lastActiveMonth,
+    budgetCycleStartDay: next.budgetCycleStartDay,
     expenses: next.expenses,
     history: next.history,
     categories: next.categories,

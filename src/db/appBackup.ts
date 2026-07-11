@@ -9,6 +9,7 @@ export type RestorePreviewCounts = Readonly<{
   expenses: number;
   goals: number;
   ious: number;
+  recurringPayments: number;
 }>;
 
 export type RestorePreview = Readonly<{
@@ -53,6 +54,7 @@ export function deriveRestorePreview(envelope: PersistedEnvelope<unknown>): Rest
       expenses: countArrayProperty(envelope.state, 'expenses'),
       goals: countArrayProperty(envelope.state, 'goals'),
       ious: countArrayProperty(envelope.state, 'ious'),
+      recurringPayments: countArrayProperty(envelope.state, 'recurringPayments'),
     },
   };
 }

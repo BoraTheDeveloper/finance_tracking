@@ -23,6 +23,7 @@ export type RolloverInput<Category extends MonthlyResetCategory> = Readonly<{
   today: IsoDayString;
   lastActiveDay?: string | null;
   lastActiveMonth?: string | null;
+  budgetCycleStartDay?: number;
   expenses: readonly DatedExpense[];
   history: readonly number[];
   categories: readonly Category[];
@@ -43,6 +44,13 @@ export type RolloverResult<Category extends MonthlyResetCategory> = Readonly<{
   monthlyRolledOver: boolean;
   previousActiveDaySpentUsd: number;
 }>;
+export type BudgetCycle = Readonly<{
+  key: IsoMonthString;
+  start: IsoDayString;
+  end: IsoDayString;
+  daysLeftIncludingToday: number;
+}>;
+
 
 type DayParts = Readonly<{ year: number; month: number; day: number }>;
 
@@ -114,6 +122,19 @@ export function daysInIsoMonth(month: string): number {
   return daysInMonth(parts!.year, parts!.month);
 }
 
+export function normalizeBudgetCycleStartDay(value: unknown): number {
+  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 31 ? value : 1;
+}
+
+function shiftMonthParts(year: number, month: number, delta: number): Omit<DayParts, 'day'> {
+  const shifted = new Date(year, month - 1 + delta, 1);
+  return { year: shifted.getFullYear(), month: shifted.getMonth() + 1 };
+}
+
+function budgetCycleStartInMonth(year: number, month: number, startDay: number): IsoDayString {
+  return isoDayFromDate(new Date(year, month - 1, Math.min(startDay, daysInMonth(year, month))));
+}
+
 function isoDayTimestamp(day: string): number {
   const parts = parseIsoDay(assertIsoDay(day));
   return new Date(parts!.year, parts!.month - 1, parts!.day).getTime();
@@ -142,6 +163,47 @@ export function daysRemainingInMonth(day: string): number {
   return daysInMonth(parts!.year, parts!.month) - parts!.day + 1;
 }
 
+export function budgetCycleStartForDay(day: string, startDay = 1): IsoDayString {
+  const cycleStartDay = normalizeBudgetCycleStartDay(startDay);
+  const parts = parseIsoDay(assertIsoDay(day));
+  const thisMonthStart = budgetCycleStartInMonth(parts!.year, parts!.month, cycleStartDay);
+  if (isoDayTimestamp(day) >= isoDayTimestamp(thisMonthStart)) return thisMonthStart;
+  const previous = shiftMonthParts(parts!.year, parts!.month, -1);
+  return budgetCycleStartInMonth(previous.year, previous.month, cycleStartDay);
+}
+
+export function budgetCycleEndForDay(day: string, startDay = 1): IsoDayString {
+  const start = budgetCycleStartForDay(day, startDay);
+  const parts = parseIsoDay(start)!;
+  const next = shiftMonthParts(parts.year, parts.month, 1);
+  return addIsoDays(budgetCycleStartInMonth(next.year, next.month, normalizeBudgetCycleStartDay(startDay)), -1);
+}
+
+export function budgetCycleKeyForDay(day: string, startDay = 1): IsoMonthString {
+  return isoMonthFromDay(budgetCycleStartForDay(day, startDay));
+}
+
+export function daysRemainingInBudgetCycle(day: string, startDay = 1): number {
+  return Math.floor((isoDayTimestamp(budgetCycleEndForDay(day, startDay)) - isoDayTimestamp(day)) / 86400000) + 1;
+}
+
+export function budgetCycleForDay(day: string, startDay = 1): BudgetCycle {
+  const start = budgetCycleStartForDay(day, startDay);
+  const end = budgetCycleEndForDay(day, startDay);
+  return {
+    key: isoMonthFromDay(start),
+    start,
+    end,
+    daysLeftIncludingToday: daysRemainingInBudgetCycle(day, startDay),
+  };
+}
+
+export function isIsoDayInBudgetCycle(day: string | null | undefined, containingDay: string, startDay = 1): day is IsoDayString {
+  if (typeof day !== 'string' || !isIsoDay(day)) return false;
+  const cycle = budgetCycleForDay(containingDay, startDay);
+  return isoDayTimestamp(day) >= isoDayTimestamp(cycle.start) && isoDayTimestamp(day) <= isoDayTimestamp(cycle.end);
+}
+
 
 function expenseDate(expense: object): string | null | undefined {
   if (!('date' in expense)) return undefined;
@@ -163,6 +225,11 @@ export function filterExpensesByMonth<Expense extends object>(expenses: readonly
   return expenses.filter((expense) => isIsoDayInMonth(expenseDate(expense), month));
 }
 
+export function filterExpensesByBudgetCycle<Expense extends object>(expenses: readonly Expense[], day: string, startDay = 1): Expense[] {
+  assertIsoDay(day);
+  return expenses.filter((expense) => isIsoDayInBudgetCycle(expenseDate(expense), day, startDay));
+}
+
 export function amountUsd(expense: Pick<DatedExpense, 'amount' | 'cur'>, khrPerUsd = 4100): number {
   if (!Number.isFinite(expense.amount)) throw new Error('expense amount must be finite');
   if (!Number.isFinite(khrPerUsd) || khrPerUsd <= 0) throw new Error('KHR per USD rate must be positive');
@@ -181,6 +248,10 @@ export function spentUsdForMonth(expenses: readonly DatedExpense[], month: strin
   return filterExpensesByMonth(expenses, month).filter(isSpendingRecord).reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
 }
 
+export function spentUsdForBudgetCycle(expenses: readonly DatedExpense[], day: string, startDay = 1, khrPerUsd = 4100): number {
+  return filterExpensesByBudgetCycle(expenses, day, startDay).filter(isSpendingRecord).reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
+}
+
 export function appendTrimmedHistory(history: readonly number[], spentUsd: number, maxHistoryDays = MAX_HISTORY_DAYS): number[] {
   if (!Number.isFinite(spentUsd)) throw new Error('spent USD must be finite');
   if (!Number.isInteger(maxHistoryDays) || maxHistoryDays < 1) throw new Error('max history days must be a positive integer');
@@ -194,7 +265,8 @@ function resetCategoryForNewMonth<Category extends MonthlyResetCategory>(categor
 
 export function applyDateRollover<Category extends MonthlyResetCategory>(input: RolloverInput<Category>): RolloverResult<Category> {
   const today = assertIsoDay(input.today, 'today');
-  const todayMonth = isoMonthFromDay(today);
+  const cycleStartDay = normalizeBudgetCycleStartDay(input.budgetCycleStartDay);
+  const todayMonth = budgetCycleKeyForDay(today, cycleStartDay);
   const lastActiveDay = typeof input.lastActiveDay === 'string' && isIsoDay(input.lastActiveDay) ? input.lastActiveDay : null;
   const lastActiveMonth = typeof input.lastActiveMonth === 'string' && isIsoMonth(input.lastActiveMonth) ? input.lastActiveMonth : null;
   const elapsedDays = lastActiveDay != null ? elapsedIsoDays(lastActiveDay, today) : [];

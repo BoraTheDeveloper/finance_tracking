@@ -6,7 +6,10 @@ import { INITIAL_MODEL } from '../src/app/initialState';
 import { convertMoney, formatMoney, money, parseMoney } from '../src/domain/money';
 import { bestAndWorst, buildHeatmap } from '../src/domain/insights';
 import { summarizeModelForDay } from '../src/app/budgetSummary';
+import { khr as appKhr, usd as appUsd } from '../src/app/formatters';
 import { spentUsdForDay, spentUsdForMonth } from '../src/domain/dates';
+import { applyQuickAmountChip, buildFastEntryMemory, rememberedFastEntryCategory } from '../src/app/fastEntryMemory';
+import { normalizeLoadedModel } from '../src/app/normalizeLoadedModel';
 
 describe('money', () => {
   it('stores USD cents and KHR whole riel', () => {
@@ -23,6 +26,19 @@ describe('money', () => {
     expect(() => convertMoney(money(1000, 'KHR'), 'USD', { khrPerUsd: 0 })).toThrow('Exchange rate must be positive');
     expect(() => convertMoney(money(1000, 'KHR'), 'USD', { khrPerUsd: -4100 })).toThrow('Exchange rate must be positive');
     expect(() => convertMoney(money(1000, 'KHR'), 'USD', { khrPerUsd: Number.NaN })).toThrow('Exchange rate must be positive');
+  });
+
+  it('formats KHR and USD amounts with exactly two decimal places', () => {
+    expect(formatMoney(money(1234, 'KHR'))).toBe('1,234.00៛');
+    expect(formatMoney(money(1230, 'USD'))).toBe('$12.30');
+  });
+});
+
+describe('app money formatters', () => {
+  it('rounds KHR display amounts to exactly two decimal places while keeping USD at two decimals', () => {
+    expect(appKhr(1234)).toBe('1,234.00៛');
+    expect(appKhr(1234.567)).toBe('1,234.57៛');
+    expect(appUsd(12.3)).toBe('$12.30');
   });
 });
 
@@ -43,6 +59,7 @@ describe('initial model', () => {
     expect(INITIAL_MODEL.expenses).toEqual([]);
     expect(INITIAL_MODEL.goals).toEqual([]);
     expect(INITIAL_MODEL.ious).toEqual([]);
+    expect(INITIAL_MODEL.recurringPayments).toEqual([]);
     expect(INITIAL_MODEL.history).toEqual([]);
   });
 });
@@ -60,6 +77,46 @@ describe('expense parser', () => {
     expect(parsed.amount).toEqual(money(1000, 'KHR'));
     expect(parsed.categoryKey).toBe('food');
   });
+  it('prefers the comma amount so numbered merchant names stay usable with chips', () => {
+    const parsed = parseExpenseText('7 eleven, 5$');
+
+    expect(parsed.amount).toEqual(money(500, 'USD'));
+    expect(parsed.label).toBe('7 eleven');
+  });
+});
+
+describe('fast entry helpers', () => {
+  const categories = [
+    { key: 'food', label: 'Food', icon: 'restaurant', color: '#ef8b4f', spentUsd: 0, budgetUsd: 120 },
+    { key: 'transport', label: 'Transport', icon: 'directions-bus', color: '#3ba6d4', spentUsd: 0, budgetUsd: 60 },
+  ];
+
+  it('remembers the latest saved expense category by normalized merchant name', () => {
+    const memory = buildFastEntryMemory([
+      { id: 'new', name: 'Lucky Burger', cat: 'food', amount: 5, cur: 'USD', time: '12:00', date: '2026-07-07', kind: 'expense' },
+      { id: 'old', name: 'Lucky Burger', cat: 'transport', amount: 4, cur: 'USD', time: '12:00', date: '2026-07-01', kind: 'expense' },
+      { id: 'income', name: 'Lucky Burger', cat: 'income', amount: 100, cur: 'USD', time: '12:00', date: '2026-07-08', kind: 'income' },
+    ], categories);
+
+    expect(rememberedFastEntryCategory('lucky burger', memory, categories)).toBe('food');
+  });
+
+  it('rebuilds local memory for restored legacy models from saved expenses', () => {
+    const normalized = normalizeLoadedModel({
+      categories,
+      expenses: [
+        { id: 'coffee', name: 'Brown Coffee', cat: 'food', amount: 3, cur: 'USD', time: '08:00', date: '2026-07-07', kind: 'expense' },
+      ],
+    }, '2026-07-08');
+
+    expect(rememberedFastEntryCategory('brown coffee', normalized.fastEntryMemory, normalized.categories)).toBe('food');
+  });
+
+  it('appends and replaces quick chip amounts as parseable transaction text', () => {
+    expect(parseExpenseText(applyQuickAmountChip('coffee', '5$')).amount).toEqual(money(500, 'USD'));
+    expect(parseExpenseText(applyQuickAmountChip('coffee, 2$', '5000 riels')).amount).toEqual(money(5000, 'KHR'));
+  });
+
 });
 
 describe('budget summary', () => {
@@ -161,6 +218,36 @@ describe('income transaction totals', () => {
     expect(summary.spentMonthUsd).toEqual(money(1200, 'USD'));
     expect(summary.spentTodayUsd).toEqual(money(1200, 'USD'));
     expect(summary.dailyBudgetUsd).toEqual(money(3800, 'USD'));
+  });
+
+  it('uses the active payday budget cycle for income, spending, and days left', () => {
+    const summary = summarizeModelForDay({
+      ...INITIAL_MODEL,
+      budgetCycleStartDay: 5,
+      salary: 1000,
+      salaryCur: 'USD',
+      rate: 4000,
+      rent: 0,
+      utilities: 0,
+      loan: 0,
+      method: 'balanced',
+      categories: [
+        { key: 'food', label: 'Food', icon: 'restaurant', color: '#ef8b4f', spentUsd: 0, budgetUsd: 500 },
+      ],
+      expenses: [
+        { id: 'before-cycle', name: 'Before', cat: 'food', amount: 99, cur: 'USD', time: '09:00', date: '2026-07-04', kind: 'expense' },
+        { id: 'cycle-start', name: 'Start', cat: 'food', amount: 10, cur: 'USD', time: '09:00', date: '2026-07-05', kind: 'expense' },
+        { id: 'cycle-income', name: 'Bonus', cat: 'income', amount: 100, cur: 'USD', time: '09:00', date: '2026-08-01', kind: 'income' },
+        { id: 'cycle-end', name: 'End', cat: 'food', amount: 20, cur: 'USD', time: '09:00', date: '2026-08-04', kind: 'expense' },
+        { id: 'next-cycle', name: 'Next', cat: 'food', amount: 77, cur: 'USD', time: '09:00', date: '2026-08-05', kind: 'expense' },
+      ],
+    }, '2026-08-01', 0);
+
+    expect(summary.salaryUsd).toEqual(money(110000, 'USD'));
+    expect(summary.savingsTargetUsd).toEqual(money(22000, 'USD'));
+    expect(summary.spendableMonthUsd).toEqual(money(88000, 'USD'));
+    expect(summary.spentMonthUsd).toEqual(money(3000, 'USD'));
+    expect(summary.dailyBudgetUsd).toEqual(money(21250, 'USD'));
   });
 });
 

@@ -16,7 +16,7 @@ export function Row({ label, value, theme, strong }: { label: string; value: str
 }
 
 export function SectionHeader({ title, action, theme, onAction }: { title: string; action?: string; theme: Theme; onAction?: () => void }) {
-  return <View style={styles.sectionHeader}><AppText style={[styles.sectionTitle, { color: theme.muted }]}>{title}</AppText>{action ? <TouchableOpacity onPress={onAction}><AppText style={[styles.sectionAction, { color: theme.primary }]}>{action}</AppText></TouchableOpacity> : null}</View>;
+  return <View style={styles.sectionHeader}><AppText style={[styles.sectionTitle, { color: theme.muted }]}>{title}</AppText>{action ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={action} onPress={onAction}><AppText style={[styles.sectionAction, { color: theme.primary }]}>{action}</AppText></TouchableOpacity> : null}</View>;
 }
 
 export function EmptyState({ icon, title, body, theme }: { icon: IconName; title: string; body: string; theme: Theme }) {
@@ -275,7 +275,7 @@ export function Progress({ label, value, total, pct, color, theme }: { label: st
 }
 
 export function Upcoming({ icon, color, title, subtitle, amount, theme, onPress, onDone }: { icon: string; color: string; title: string; subtitle: string; amount: string; theme: Theme; onPress?: () => void; onDone: () => void }) {
-  return <TouchableOpacity activeOpacity={0.6} onPress={onPress} style={[styles.expenseRow, { borderColor: theme.line }]}><View style={[styles.bubble, { backgroundColor: `${color}22` }]}><Glyph name={icon} color={color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{title}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{subtitle}</AppText></View><AppText style={[styles.amount, { color: theme.text }]}>{amount}</AppText><TouchableOpacity onPress={onDone} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="done" size={20} color={theme.green} /></TouchableOpacity></TouchableOpacity>;
+  return <TouchableOpacity accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={`${title}, ${subtitle}, ${amount}`} activeOpacity={0.6} onPress={onPress} style={[styles.expenseRow, { borderColor: theme.line }]}><View style={[styles.bubble, { backgroundColor: `${color}22` }]}><Glyph name={icon} color={color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{title}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{subtitle}</AppText></View><AppText style={[styles.amount, { color: theme.text }]}>{amount}</AppText><TouchableOpacity accessibilityRole="button" accessibilityLabel={`Mark ${title} paid`} onPress={onDone} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="done" size={20} color={theme.green} /></TouchableOpacity></TouchableOpacity>;
 }
 
 export function Stat({ label, value }: { label: string; value: string }) {

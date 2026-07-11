@@ -6,7 +6,7 @@ import { MaterialIcons } from '@expo/vector-icons';
 import type { AppModel, BudgetMode, Currency } from '../app/types';
 import { formatClock, khr, notifyToDate, ordinal, usd } from '../app/formatters';
 import type { Theme } from '../theme/theme';
-import { FONT } from '../theme/typography';
+import { FONT, KHMER_FONT } from '../theme/typography';
 import { AppText } from './AppText';
 import { CARD_SHADOW, styles } from './styles';
 
@@ -31,7 +31,14 @@ export function DueDayPicker({ label, value, theme, onChange }: { label: string;
       <AppText style={[styles.label, { color: theme.muted }]}>{label}</AppText>
       <View style={[styles.segment, { backgroundColor: theme.surface2 }]}>
         {QUICK_DUE_DAYS.map((day) => (
-          <TouchableOpacity key={day} style={[styles.segmentButton, value === day && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => onChange(day)}>
+          <TouchableOpacity
+            key={day}
+            accessibilityRole="button"
+            accessibilityLabel={`${label} ${ordinal(day)}`}
+            accessibilityState={{ selected: value === day }}
+            style={[styles.segmentButton, value === day && { backgroundColor: theme.surface, ...CARD_SHADOW }]}
+            onPress={() => onChange(day)}
+          >
             <AppText style={[styles.segmentText, { color: value === day ? theme.text : theme.muted }]}>{ordinal(day)}</AppText>
           </TouchableOpacity>
         ))}
@@ -69,6 +76,9 @@ export function BudgetMethodPicker({
       {BUDGET_MODES.map((mode) => (
         <TouchableOpacity
           key={mode}
+          accessibilityRole="radio"
+          accessibilityLabel={mode === 'balanced' ? 'Balanced budget method, 50 30 20' : mode === 'saver' ? 'Saver budget method, 40 30 30' : `Custom budget method, ${custom.needs} ${custom.wants} ${custom.save}`}
+          accessibilityState={{ checked: method === mode, selected: method === mode }}
           style={[styles.methodCard, { backgroundColor: method === mode ? theme.primaryWash : theme.surface, borderColor: method === mode ? theme.primary : theme.line }]}
           onPress={() => onSelect(mode)}
         >
@@ -129,13 +139,20 @@ export function ReminderTimePicker({
       <AppText style={[styles.label, { color: theme.muted }]}>Quick pick</AppText>
       <View style={[styles.segment, { backgroundColor: theme.surface2 }]}>
         {REMINDER_PRESETS.map(([label, preset]) => (
-          <TouchableOpacity key={preset} style={[styles.segmentButton, value === preset && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => onChange(preset)}>
+          <TouchableOpacity
+            key={preset}
+            accessibilityRole="button"
+            accessibilityLabel={`Reminder time ${label}`}
+            accessibilityState={{ selected: value === preset }}
+            style={[styles.segmentButton, value === preset && { backgroundColor: theme.surface, ...CARD_SHADOW }]}
+            onPress={() => onChange(preset)}
+          >
             <AppText style={[styles.segmentText, { color: value === preset ? theme.text : theme.muted }]}>{label}</AppText>
           </TouchableOpacity>
         ))}
       </View>
       <AppText style={[styles.label, { color: theme.muted }]}>Or choose your own time</AppText>
-      <TouchableOpacity style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} onPress={() => onOpenChange(true)}>
+      <TouchableOpacity accessibilityRole="button" accessibilityLabel={`Choose reminder time, currently ${formatClock(value)}`} style={[styles.input, { backgroundColor: theme.surface, borderColor: theme.line, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }]} onPress={() => onOpenChange(true)}>
         <AppText style={{ fontFamily: FONT.bold, fontSize: 18, color: theme.text }}>{formatClock(value)}</AppText>
         <MaterialIcons name="schedule" size={22} color={theme.muted} />
       </TouchableOpacity>
@@ -151,7 +168,7 @@ export function ReminderTimePicker({
         />
       ) : null}
       {onPreview ? (
-        <TouchableOpacity style={[styles.button, { backgroundColor: theme.surface2, marginTop: 16, minHeight: 48 }]} onPress={onPreview}>
+        <TouchableOpacity accessibilityRole="button" accessibilityLabel="Send a preview notification now" style={[styles.button, { backgroundColor: theme.surface2, marginTop: 16, minHeight: 48 }]} onPress={onPreview}>
           <MaterialIcons name="notifications" size={18} color={theme.text} />
           <AppText style={[styles.buttonText, { color: theme.text, fontSize: 14 }]}>Send a preview now</AppText>
         </TouchableOpacity>
@@ -190,7 +207,7 @@ export function MoneyField({ label, initialAmount, initialCur = 'USD', rate, the
       <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
         <TextInput style={[styles.input, { flex: 1, backgroundColor: theme.surface, borderColor: theme.line, color: theme.text }]} keyboardType="decimal-pad" value={text} placeholder="0" placeholderTextColor={theme.faint} onChangeText={(value) => { setText(value); report(Number(value) || 0, cur); }} />
         <View style={[styles.curToggle, { backgroundColor: theme.surface2 }]}>
-          {(['USD', 'KHR'] as Currency[]).map((c) => <TouchableOpacity key={c} style={[styles.curToggleButton, cur === c && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => switchCur(c)}><AppText style={[styles.segmentText, { fontSize: 15, color: cur === c ? theme.text : theme.muted }]}>{c === 'USD' ? '$' : '៛'}</AppText></TouchableOpacity>)}
+          {(['USD', 'KHR'] as Currency[]).map((c) => <TouchableOpacity key={c} accessibilityRole="button" accessibilityLabel={`Use ${c === 'USD' ? 'US dollars' : 'Khmer riel'}`} accessibilityState={{ selected: cur === c }} style={[styles.curToggleButton, cur === c && { backgroundColor: theme.surface, ...CARD_SHADOW }]} onPress={() => switchCur(c)}><AppText style={[styles.segmentText, { fontFamily: KHMER_FONT.bold, fontSize: 15, color: cur === c ? theme.text : theme.muted }]}>{c === 'USD' ? '$' : '៛'}</AppText></TouchableOpacity>)}
         </View>
         {right ?? null}
       </View>

@@ -1,8 +1,9 @@
 export type Currency = 'USD' | 'KHR';
+export type Language = 'en' | 'km';
 export type Screen = 'home' | 'add' | 'categories' | 'detail' | 'goals' | 'insights' | 'settings' | 'onboarding';
 export type BudgetMode = 'balanced' | 'saver' | 'custom';
 export type TransactionKind = 'expense' | 'income';
-export type Sheet = 'income' | 'fixed' | 'loan' | 'method' | 'currency' | 'reminder' | 'category' | 'entry' | 'iou' | 'goal' | 'day' | 'month' | 'formula' | null;
+export type Sheet = 'income' | 'fixed' | 'loan' | 'method' | 'cycle' | 'currency' | 'reminder' | 'category' | 'entry' | 'iou' | 'goal' | 'recurring' | 'day' | 'month' | 'formula' | null;
 
 export type Category = {
   key: string;
@@ -24,6 +25,8 @@ export type Expense = {
   kind?: TransactionKind;
   note?: string;
 };
+export type FastEntryMemory = Record<string, { cat: string; lastUsed: string }>;
+
 
 export type Goal = {
   id: string;
@@ -44,13 +47,23 @@ export type Iou = {
   due: string;
 };
 
+export type RecurringPayment = {
+  id: string;
+  name: string;
+  amount: number;
+  cur: Currency;
+  dueDay: number;
+};
+
 export type AppModel = {
   onboarded: boolean;
   onbStep: number;
   screen: Screen;
   dark: boolean;
+  language: Language;
   salary: number;
   salaryCur: Currency;
+  budgetCycleStartDay: number;
   rate: number;
   exchangeRateLastFetchedDay: string | null;
   exchangeRateSource: string;
@@ -70,11 +83,13 @@ export type AppModel = {
   expenses: Expense[];
   goals: Goal[];
   ious: Iou[];
+  recurringPayments: RecurringPayment[];
   history: number[];
   rolloverUsd: number;
   lastActiveDay: string;
   lastActiveMonth: string;
   paidBills: Record<string, boolean>;
+  fastEntryMemory: FastEntryMemory;
 };
 
 export type Drafts = {
@@ -86,6 +101,10 @@ export type Drafts = {
   entryCur: Currency;
   expenseDate: string;
   selectedDay: number;
+  transactionSearch: string;
+  transactionTypeFilter: TransactionKind | 'all';
+  transactionCategoryFilter: string;
+  transactionMonth: string;
   categoryName: string;
   categoryBudget: string;
   categoryIcon: string;
@@ -95,6 +114,11 @@ export type Drafts = {
   iouAmount: string;
   iouDue: string;
   iouEditId: string | null;
+  recurringName: string;
+  recurringAmount: string;
+  recurringCur: Currency;
+  recurringDueDay: number;
+  recurringEditId: string | null;
   goalName: string;
   goalTarget: string;
   goalPer: string;
