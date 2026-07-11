@@ -1,0 +1,271 @@
+id,split,raw_text,clean_label,category_key,category_label,currency_hint,amount_value,direction,kind_hint,locale_hint,source,notes
+syn-001,train,coffee 2.5,coffee,food,Food & drinks,USD,2.5,out,,en,synthetic,coffee
+syn-002,train,cofee 2,cofee,food,Food & drinks,USD,2.0,out,,en,synthetic,misspelling
+syn-003,train,brown coffee 12000 riels,brown coffee,food,Food & drinks,KHR,12000,out,,mixed,synthetic,cafe merchant
+syn-004,train,iced latte 3.25,iced latte,food,Food & drinks,USD,3.25,out,,en,synthetic,cafe
+syn-005,train,lunch near office 3,lunch near office,food,Food & drinks,USD,3.0,out,,en,synthetic,meal with location
+syn-006,train,lunch with dara 12,lunch with dara,food,Food & drinks,USD,12.0,out,,en,synthetic,meal with person
+syn-007,train,dinner with sreypov 15,dinner with sreypov,food,Food & drinks,USD,15.0,out,,en,synthetic,dinner person
+syn-008,train,nom banh chok 5000,nom banh chok,food,Food & drinks,KHR,5000,out,,km-Latn,synthetic,khmer romanized
+syn-009,train,baay sach chrouk 7000,baay sach chrouk,food,Food & drinks,KHR,7000,out,,km-Latn,synthetic,breakfast khmer
+syn-010,train,phsar grocery 35000,phsar grocery,food,Food & drinks,KHR,35000,out,,mixed,synthetic,market groceries
+syn-011,train,phsar grocery 35000 riels yesterday,phsar grocery,food,Food & drinks,KHR,35000,out,,mixed,synthetic,mixed markers
+syn-012,train,street noodle 9000,street noodle,food,Food & drinks,KHR,9000,out,,en,synthetic,street food
+syn-013,train,kuy teav 6000,kuy teav,food,Food & drinks,KHR,6000,out,,km-Latn,synthetic,noodle khmer
+syn-014,train,pizza dinner 8,pizza dinner,food,Food & drinks,USD,8.0,out,,en,synthetic,meal
+syn-015,train,pizza with friends 18,pizza with friends,food,Food & drinks,USD,18.0,out,,en,synthetic,group meal
+syn-016,train,burger king 7.5,burger king,food,Food & drinks,USD,7.5,out,,en,synthetic,fast food
+syn-017,train,milk tea 1.5,milk tea,food,Food & drinks,USD,1.5,out,,en,synthetic,drink
+syn-018,train,teashop boba 2.25,teashop boba,food,Food & drinks,USD,2.25,out,,en,synthetic,drink
+syn-019,train,breakfast sandwich 4.5,breakfast sandwich,food,Food & drinks,USD,4.5,out,,en,synthetic,breakfast
+syn-020,train,morning coffee 2.75,coffee,food,Food & drinks,USD,2.75,out,,en,synthetic,coffee
+syn-021,train,coffee near office 3,coffee near office,food,Food & drinks,USD,3.0,out,,en,synthetic,coffee location
+syn-022,train,lunch yesterday at brown coffee 6,lunch at brown coffee,food,Food & drinks,USD,6.0,out,,en,synthetic,extra words
+syn-023,train,nom pao 4000,nom pao,food,Food & drinks,KHR,4000,out,,km-Latn,synthetic,snack khmer
+syn-024,train,bakery bread 2,bakery bread,food,Food & drinks,USD,2.0,out,,en,synthetic,bakery
+syn-025,train,restaurant dinner 25,restaurant dinner,food,Food & drinks,USD,25.0,out,,en,synthetic,restaurant
+syn-026,train,kor kou 5500,kor kou,food,Food & drinks,KHR,5500,out,,km-Latn,synthetic,khmer dish
+syn-027,train,coffee 2.5 usd,coffee,food,Food & drinks,USD,2.5,out,,en,synthetic,currency marker
+syn-028,train,snack at mart 1.5,snack at mart,food,Food & drinks,USD,1.5,out,,en,synthetic,snack
+syn-029,train,dinner with family 20,dinner with family,food,Food & drinks,USD,20.0,out,,en,synthetic,family meal
+syn-030,train,cafe au lait 3,cafe au lait,food,Food & drinks,USD,3.0,out,,en,synthetic,cafe
+syn-031,train,coffee,coffee,food,Food & drinks,USD,0.0,out,,en,synthetic,no amount
+syn-032,train,grab 4000,grab,transport,Transport,KHR,4000,out,,en,synthetic,ride hailing
+syn-033,train,grab rde 4000,grab rde,transport,Transport,KHR,4000,out,,en,synthetic,misspelling
+syn-034,train,tuktuk home 6000,tuktuk home,transport,Transport,KHR,6000,out,,mixed,synthetic,local transport
+syn-035,train,tuk tuk to aeon 5000,tuk tuk to aeon,transport,Transport,KHR,5000,out,,mixed,synthetic,ride location
+syn-036,train,passapp to office 8000,passapp to office,transport,Transport,KHR,8000,out,,en,synthetic,ride hailing
+syn-037,train,passapp night ride 10000,passapp ride,transport,Transport,KHR,10000,out,,en,synthetic,ride variant
+syn-038,train,bus card top up 2,bus card top up,transport,Transport,USD,2.0,out,,en,synthetic,bus transit
+syn-039,train,bus ticket siem reap 10,bus ticket siem reap,transport,Transport,USD,10.0,out,,en,synthetic,intercity bus
+syn-040,train,moto fuel 15000,moto fuel,transport,Transport,KHR,15000,out,,en,synthetic,fuel
+syn-041,train,petrol station 5,petrol station,transport,Transport,USD,5.0,out,,en,synthetic,fuel
+syn-042,train,parking mall 2000,parking mall,transport,Transport,KHR,2000,out,,en,synthetic,parking
+syn-043,train,taxi airport 12,taxi airport,transport,Transport,USD,12.0,out,,en,synthetic,taxi
+syn-044,train,ride to riverside 7000,ride to riverside,transport,Transport,KHR,7000,out,,en,synthetic,ride
+syn-045,train,train ticket 4,train ticket,transport,Transport,USD,4.0,out,,en,synthetic,transit ticket
+syn-046,train,grab to mall 6000 riels,grab to mall,transport,Transport,KHR,6000,out,,mixed,synthetic,currency marker
+syn-047,train,grab tuktuk 4000 riels yesterday,grab tuktuk,transport,Transport,KHR,4000,out,,mixed,synthetic,mixed markers
+syn-048,train,moto dop 3000,moto dop,transport,Transport,KHR,3000,out,,km-Latn,synthetic,moto taxi
+syn-049,train,remork ride 8000,remork ride,transport,Transport,KHR,8000,out,,km-Latn,synthetic,remork
+syn-050,train,fuel moto 12000,fuel moto,transport,Transport,KHR,12000,out,,en,synthetic,fuel
+syn-051,train,gasoline 4.5,gasoline,transport,Transport,USD,4.5,out,,en,synthetic,fuel
+syn-052,train,parking fee 1000,parking fee,transport,Transport,KHR,1000,out,,en,synthetic,parking
+syn-053,train,grab late night 9000,grab late,transport,Transport,KHR,9000,out,,en,synthetic,late ride
+syn-054,train,bus to phnom penh 6,bus to phnom penh,transport,Transport,USD,6.0,out,,en,synthetic,bus
+syn-055,train,taxi to airport 9,taxi to airport,transport,Transport,USD,9.0,out,,en,synthetic,taxi airport
+syn-056,train,passapp,passapp,transport,Transport,KHR,0.0,out,,en,synthetic,no amount
+syn-057,train,tuktuk 5000,tuktuk,transport,Transport,KHR,5000,out,,mixed,synthetic,simple
+syn-058,train,phone topup 5,phone topup,bills,Bills & utilities,USD,5.0,out,,en,synthetic,mobile topup
+syn-059,train,wifi bill 25,wifi bill,bills,Bills & utilities,USD,25.0,out,,en,synthetic,internet
+syn-060,train,electricity 30,electricity,bills,Bills & utilities,USD,30.0,out,,en,synthetic,power bill
+syn-061,train,elec 30,elec,bills,Bills & utilities,USD,30.0,out,,en,synthetic,abbreviation
+syn-062,train,water bill 12000,water bill,bills,Bills & utilities,KHR,12000,out,,en,synthetic,utility
+syn-063,train,rent 350,rent,bills,Bills & utilities,USD,350.0,out,,en,synthetic,rent abbreviation
+syn-064,train,rent payment 350,rent payment,bills,Bills & utilities,USD,350.0,out,,en,synthetic,rent
+syn-065,train,netflix monthly 10,netflix monthly,bills,Bills & utilities,USD,10.0,out,,en,synthetic,subscription
+syn-066,train,netflix streaming 10,netflix streaming,bills,Bills & utilities,USD,10.0,out,,en,synthetic,streaming sub
+syn-067,train,cellcard recharge 2,cellcard recharge,bills,Bills & utilities,USD,2.0,out,,en,synthetic,mobile recharge
+syn-068,train,garbage fee 5000,garbage fee,bills,Bills & utilities,KHR,5000,out,,en,synthetic,home utility
+syn-069,train,app store subscription 3,app store subscription,bills,Bills & utilities,USD,3.0,out,,en,synthetic,digital subscription
+syn-070,train,internet fiber 28,internet fiber,bills,Bills & utilities,USD,28.0,out,,en,synthetic,internet
+syn-071,train,subs 10,subs,bills,Bills & utilities,USD,10.0,out,,en,synthetic,abbreviation
+syn-072,train,smart topup 5,smart topup,bills,Bills & utilities,USD,5.0,out,,en,synthetic,mobile
+syn-073,train,electric 35,electric,bills,Bills & utilities,USD,35.0,out,,en,synthetic,power
+syn-074,train,water 10000 riels,water,bills,Bills & utilities,KHR,10000,out,,en,synthetic,currency marker
+syn-075,train,internet bill 30 usd,internet bill,bills,Bills & utilities,USD,30.0,out,,en,synthetic,currency marker
+syn-076,train,monthly rent 350,monthly rent,bills,Bills & utilities,USD,350.0,out,,en,synthetic,rent
+syn-077,train,phone bill 8,phone bill,bills,Bills & utilities,USD,8.0,out,,en,synthetic,mobile
+syn-078,train,spotify family 7.99,spotify family,bills,Bills & utilities,USD,7.99,out,,en,synthetic,subscription
+syn-079,train,edc bill 45,edc bill,bills,Bills & utilities,USD,45.0,out,,en,synthetic,electricity
+syn-080,train,ppwsa water 15,ppwsa water,bills,Bills & utilities,USD,15.0,out,,en,synthetic,water utility
+syn-081,train,cable tv 12,cable tv,bills,Bills & utilities,USD,12.0,out,,en,synthetic,subscription
+syn-082,train,internet,internet,bills,Bills & utilities,USD,0.0,out,,en,synthetic,no amount
+syn-083,train,shirt at mall 12,shirt at mall,shopping,Shopping,USD,12.0,out,,en,synthetic,clothes
+syn-084,train,shoes 25,shoes,shopping,Shopping,USD,25.0,out,,en,synthetic,shoes
+syn-085,train,phsar bag 18000,phsar bag,shopping,Shopping,KHR,18000,out,,mixed,synthetic,market bag
+syn-086,train,amazon cable 9,amazon cable,shopping,Shopping,USD,9.0,out,,en,synthetic,gadget accessory
+syn-087,train,cosmetic store 7,cosmetic store,shopping,Shopping,USD,7.0,out,,en,synthetic,cosmetics
+syn-088,train,jeans sale 18,jeans sale,shopping,Shopping,USD,18.0,out,,en,synthetic,clothes
+syn-089,train,phone case 4,phone case,shopping,Shopping,USD,4.0,out,,en,synthetic,accessory
+syn-090,train,market umbrella 12000,market umbrella,shopping,Shopping,KHR,12000,out,,en,synthetic,market item
+syn-091,train,bookstore pen 2,bookstore pen,shopping,Shopping,USD,2.0,out,,en,synthetic,store item
+syn-092,train,birthday gift 15,birthday gift,shopping,Shopping,USD,15.0,out,,en,synthetic,gift purchase
+syn-093,train,dress at aeon 22,dress at aeon,shopping,Shopping,USD,22.0,out,,en,synthetic,clothes
+syn-094,train,sneakers 35,sneakers,shopping,Shopping,USD,35.0,out,,en,synthetic,shoes
+syn-095,train,handbag 40,handbag,shopping,Shopping,USD,40.0,out,,en,synthetic,bag
+syn-096,train,watch 55,watch,shopping,Shopping,USD,55.0,out,,en,synthetic,accessory
+syn-097,train,earbuds 25,earbuds,shopping,Shopping,USD,25.0,out,,en,synthetic,electronics
+syn-098,train,usb cable 3.5,usb cable,shopping,Shopping,USD,3.5,out,,en,synthetic,electronics
+syn-099,train,power bank 18,power bank,shopping,Shopping,USD,18.0,out,,en,synthetic,electronics
+syn-100,train,tshirt 8,tshirt,shopping,Shopping,USD,8.0,out,,en,synthetic,clothes
+syn-101,train,shorts 10,shorts,shopping,Shopping,USD,10.0,out,,en,synthetic,clothes
+syn-102,train,phsar slippers 9000,phsar slippers,shopping,Shopping,KHR,9000,out,,mixed,synthetic,market shoes
+syn-103,train,makeup 12,makeup,shopping,Shopping,USD,12.0,out,,en,synthetic,cosmetics
+syn-104,train,lipstick 6,lipstick,shopping,Shopping,USD,6.0,out,,en,synthetic,cosmetics
+syn-105,train,perfume 30,perfume,shopping,Shopping,USD,30.0,out,,en,synthetic,cosmetics
+syn-106,train,sunglasses 14,sunglasses,shopping,Shopping,USD,14.0,out,,en,synthetic,accessory
+syn-107,train,backpack 28,backpack,shopping,Shopping,USD,28.0,out,,en,synthetic,bag
+syn-108,train,wallet 9,wallet,shopping,Shopping,USD,9.0,out,,en,synthetic,accessory
+syn-109,train,phone charger 7,phone charger,shopping,Shopping,USD,7.0,out,,en,synthetic,electronics
+syn-110,train,screen protector 2,screen protector,shopping,Shopping,USD,2.0,out,,en,synthetic,accessory
+syn-111,train,market vase 15000,market vase,shopping,Shopping,KHR,15000,out,,en,synthetic,market item
+syn-112,train,phsar dress 25000,phsar dress,shopping,Shopping,KHR,25000,out,,mixed,synthetic,market clothes
+syn-113,train,jeans at mall 30,jeans at mall,shopping,Shopping,USD,30.0,out,,en,synthetic,clothes
+syn-114,train,shoes sale 22,shoes sale,shopping,Shopping,USD,22.0,out,,en,synthetic,shoes
+syn-115,train,laptop bag 32,laptop bag,shopping,Shopping,USD,32.0,out,,en,synthetic,bag
+syn-116,train,socks 3,socks,shopping,Shopping,USD,3.0,out,,en,synthetic,clothes
+syn-117,train,shampoo 5,shampoo,shopping,Shopping,USD,5.0,out,,en,synthetic,household shopping
+syn-118,train,phsar groceries 28000,phsar groceries,shopping,Shopping,KHR,28000,out,,mixed,synthetic,market
+syn-119,train,headphones 45,headphones,shopping,Shopping,USD,45.0,out,,en,synthetic,electronics
+syn-120,train,netflix 10,netflix,ent,Entertainment,USD,10.0,out,,en,synthetic,streaming
+syn-121,train,netflx 10,netflx,ent,Entertainment,USD,10.0,out,,en,synthetic,misspelling
+syn-122,train,cinema ticket 5,cinema ticket,ent,Entertainment,USD,5.0,out,,en,synthetic,movie
+syn-123,train,spotify 4.99,spotify,ent,Entertainment,USD,4.99,out,,en,synthetic,music streaming
+syn-124,train,youtube premium 3,youtube premium,ent,Entertainment,USD,3.0,out,,en,synthetic,video subscription
+syn-125,train,karaoke night 12,karaoke,ent,Entertainment,USD,12.0,out,,en,synthetic,night out
+syn-126,train,beer with friends 8,beer with friends,ent,Entertainment,USD,8.0,out,,en,synthetic,bar spend
+syn-127,train,steam game 6,steam game,ent,Entertainment,USD,6.0,out,,en,synthetic,gaming
+syn-128,train,concert ticket 20,concert ticket,ent,Entertainment,USD,20.0,out,,en,synthetic,event
+syn-129,train,party snacks 30000,party snacks,ent,Entertainment,KHR,30000,out,,en,synthetic,party spend
+syn-130,train,pool table 4,pool table,ent,Entertainment,USD,4.0,out,,en,synthetic,recreation
+syn-131,train,bar drinks 15,bar drinks,ent,Entertainment,USD,15.0,out,,en,synthetic,bar
+syn-132,train,netflix subscription,netflix subscription,ent,Entertainment,USD,0.0,out,,en,synthetic,no amount
+syn-133,train,spotify premium 5.99,spotify premium,ent,Entertainment,USD,5.99,out,,en,synthetic,music
+syn-134,train,movie at legend 6,movie at legend,ent,Entertainment,USD,6.0,out,,en,synthetic,cinema
+syn-135,train,kbox karaoke 10,kbox karaoke,ent,Entertainment,USD,10.0,out,,en,synthetic,karaoke
+syn-136,train,playstation game 20,playstation game,ent,Entertainment,USD,20.0,out,,en,synthetic,gaming
+syn-137,train,in-game gems 5,in-game gems,ent,Entertainment,USD,5.0,out,,en,synthetic,gaming
+syn-138,train,bowling 8,bowling,ent,Entertainment,USD,8.0,out,,en,synthetic,recreation
+syn-139,train,pub night 18,pub,ent,Entertainment,USD,18.0,out,,en,synthetic,bar
+syn-140,train,live concert 25,live concert,ent,Entertainment,USD,25.0,out,,en,synthetic,concert
+syn-141,train,netflix 10 usd,netflix,ent,Entertainment,USD,10.0,out,,en,synthetic,currency marker
+syn-142,train,arcade 4,arcade,ent,Entertainment,USD,4.0,out,,en,synthetic,recreation
+syn-143,train,disney plus 7,disney plus,ent,Entertainment,USD,7.0,out,,en,synthetic,streaming
+syn-144,train,beer at riverside 6,beer at riverside,ent,Entertainment,USD,6.0,out,,en,synthetic,bar
+syn-145,train,pharmacy 6,pharmacy,health,Health,USD,6.0,out,,en,synthetic,medicine
+syn-146,train,doctor visit 20,doctor visit,health,Health,USD,20.0,out,,en,synthetic,clinic
+syn-147,train,medicine for cold 12000,medicine for cold,health,Health,KHR,12000,out,,en,synthetic,medicine
+syn-148,train,gym monthly 30,gym monthly,health,Health,USD,30.0,out,,en,synthetic,gym
+syn-149,train,dentist cleaning 25,dentist cleaning,health,Health,USD,25.0,out,,en,synthetic,dental
+syn-150,train,vitamin bottle 8,vitamin bottle,health,Health,USD,8.0,out,,en,synthetic,supplement
+syn-151,train,hospital checkup 40,hospital checkup,health,Health,USD,40.0,out,,en,synthetic,checkup
+syn-152,train,clinic fee 15,clinic fee,health,Health,USD,15.0,out,,en,synthetic,clinic
+syn-153,train,glasses repair 5,glasses repair,health,Health,USD,5.0,out,,en,synthetic,medical accessory
+syn-154,train,therapy session 35,therapy session,health,Health,USD,35.0,out,,en,synthetic,therapy
+syn-155,train,paracetamol 2,paracetamol,health,Health,USD,2.0,out,,en,synthetic,medicine
+syn-156,train,cough syrup 4.5,cough syrup,health,Health,USD,4.5,out,,en,synthetic,medicine
+syn-157,train,eye checkup 12,eye checkup,health,Health,USD,12.0,out,,en,synthetic,checkup
+syn-158,train,blood test 18,blood test,health,Health,USD,18.0,out,,en,synthetic,lab
+syn-159,train,pharmacy medicine 8000,pharmacy medicine,health,Health,KHR,8000,out,,en,synthetic,medicine
+syn-160,train,massage 15,massage,health,Health,USD,15.0,out,,en,synthetic,therapy
+syn-161,train,vaccine 25,vaccine,health,Health,USD,25.0,out,,en,synthetic,vaccine
+syn-162,train,skin cream 7,skin cream,health,Health,USD,7.0,out,,en,synthetic,medicine
+syn-163,train,dental filling 50,dental filling,health,Health,USD,50.0,out,,en,synthetic,dental
+syn-164,train,gym day pass 5,gym day pass,health,Health,USD,5.0,out,,en,synthetic,gym
+syn-165,train,supplements 12,supplements,health,Health,USD,12.0,out,,en,synthetic,supplement
+syn-166,train,first aid kit 9,first aid kit,health,Health,USD,9.0,out,,en,synthetic,medical
+syn-167,train,checkup,checkup,health,Health,USD,0.0,out,,en,synthetic,no amount
+syn-168,train,school fee 100,school fee,education,Education,USD,100.0,out,,en,synthetic,tuition
+syn-169,train,english class 20,english class,education,Education,USD,20.0,out,,en,synthetic,class
+syn-170,train,course udemy 12,course udemy,education,Education,USD,12.0,out,,en,synthetic,online course
+syn-171,train,notebook pen 6000,notebook pen,education,Education,KHR,6000,out,,en,synthetic,school supplies
+syn-172,train,book for study 9,book for study,education,Education,USD,9.0,out,,en,synthetic,book
+syn-173,train,exam fee 15,exam fee,education,Education,USD,15.0,out,,en,synthetic,exam
+syn-174,train,khmer lesson 10,khmer lesson,education,Education,USD,10.0,out,,en,synthetic,lesson
+syn-175,train,coursera certificate 49,coursera certificate,education,Education,USD,49.0,out,,en,synthetic,certificate
+syn-176,train,stationery shop 7000,stationery shop,education,Education,KHR,7000,out,,en,synthetic,stationery
+syn-177,train,training workshop 25,training workshop,education,Education,USD,25.0,out,,en,synthetic,workshop
+syn-178,train,tuition 150,tuition,education,Education,USD,150.0,out,,en,synthetic,tuition
+syn-179,train,textbook 18,textbook,education,Education,USD,18.0,out,,en,synthetic,book
+syn-180,train,online course 14,online course,education,Education,USD,14.0,out,,en,synthetic,course
+syn-181,train,language class 30,language class,education,Education,USD,30.0,out,,en,synthetic,class
+syn-182,train,school supplies 8000,school supplies,education,Education,KHR,8000,out,,en,synthetic,supplies
+syn-183,train,student binder 3,student binder,education,Education,USD,3.0,out,,en,synthetic,supplies
+syn-184,train,drawing class 12,drawing class,education,Education,USD,12.0,out,,en,synthetic,class
+syn-185,train,coding bootcamp 200,coding bootcamp,education,Education,USD,200.0,out,,en,synthetic,course
+syn-186,train,exam registration 10,exam registration,education,Education,USD,10.0,out,,en,synthetic,exam
+syn-187,train,lecture notes 4,lecture notes,education,Education,USD,4.0,out,,en,synthetic,supplies
+syn-188,train,duolingo plus 6.99,duolingo plus,education,Education,USD,6.99,out,,en,synthetic,subscription
+syn-189,train,calculator 8,calculator,education,Education,USD,8.0,out,,en,synthetic,supplies
+syn-190,train,school,school,education,Education,USD,0.0,out,,en,synthetic,no amount
+syn-191,train,mom groceries 20,mom groceries,family,Family & home,USD,20.0,out,,en,synthetic,family support
+syn-192,train,dad medicine 15,dad medicine,family,Family & home,USD,15.0,out,,en,synthetic,parent support
+syn-193,train,baby diapers 12,baby diapers,family,Family & home,USD,12.0,out,,en,synthetic,kids
+syn-194,train,kids snack 8000,kids snack,family,Family & home,KHR,8000,out,,en,synthetic,child spend
+syn-195,train,home cleaning 10,home cleaning,family,Family & home,USD,10.0,out,,en,synthetic,household
+syn-196,train,pet food 6,pet food,family,Family & home,USD,6.0,out,,en,synthetic,pet
+syn-197,train,parent gift 18,parent gift,family,Family & home,USD,18.0,out,,en,synthetic,family gift
+syn-198,train,maid payment 30,maid payment,family,Family & home,USD,30.0,out,,en,synthetic,home help
+syn-199,train,household soap 9000,household soap,family,Family & home,KHR,9000,out,,en,synthetic,home supply
+syn-200,train,sister birthday 20,sister birthday,family,Family & home,USD,20.0,out,,en,synthetic,family occasion
+syn-201,train,mom allowance 50,mom allowance,family,Family & home,USD,50.0,out,,en,synthetic,parent support
+syn-202,train,dad phone 25,dad phone,family,Family & home,USD,25.0,out,,en,synthetic,parent gift
+syn-203,train,baby formula 14,baby formula,family,Family & home,USD,14.0,out,,en,synthetic,baby
+syn-204,train,kids toys 16,kids toys,family,Family & home,USD,16.0,out,,en,synthetic,kids
+syn-205,train,dog vet 22,dog vet,family,Family & home,USD,22.0,out,,en,synthetic,pet
+syn-206,train,cat food 5,cat food,family,Family & home,USD,5.0,out,,en,synthetic,pet
+syn-207,train,household items 11000,household items,family,Family & home,KHR,11000,out,,en,synthetic,home supply
+syn-208,train,niece gift 12,niece gift,family,Family & home,USD,12.0,out,,en,synthetic,family gift
+syn-209,train,mom groceries 25 usd,mom groceries,family,Family & home,USD,25.0,out,,en,synthetic,currency marker
+syn-210,train,brother help 30,brother help,family,Family & home,USD,30.0,out,,en,synthetic,family support
+syn-211,train,laundry 8,laundry,family,Family & home,USD,8.0,out,,en,synthetic,household
+syn-212,train,baby wipes 4,baby wipes,family,Family & home,USD,4.0,out,,en,synthetic,baby
+syn-213,train,home repair 18,home repair,family,Family & home,USD,18.0,out,,en,synthetic,household
+syn-214,train,kids school bag 10,kids school bag,family,Family & home,USD,10.0,out,,en,synthetic,kids
+syn-215,train,family dinner treat 35,family dinner treat,family,Family & home,USD,35.0,out,,en,synthetic,family occasion
+syn-216,train,flight ticket 180,flight ticket,travel,Travel,USD,180.0,out,,en,synthetic,flight
+syn-217,train,hotel deposit 50,hotel deposit,travel,Travel,USD,50.0,out,,en,synthetic,hotel
+syn-218,train,visa fee 35,visa fee,travel,Travel,USD,35.0,out,,en,synthetic,visa
+syn-219,train,passport photo 5,passport photo,travel,Travel,USD,5.0,out,,en,synthetic,passport
+syn-220,train,airport bus 3,airport bus,travel,Travel,USD,3.0,out,,en,synthetic,airport trip
+syn-221,train,airbnb booking 70,airbnb booking,travel,Travel,USD,70.0,out,,en,synthetic,lodging
+syn-222,train,tour guide 25,tour guide,travel,Travel,USD,25.0,out,,en,synthetic,tour
+syn-223,train,resort deposit 40,resort deposit,travel,Travel,USD,40.0,out,,en,synthetic,resort
+syn-224,train,vacation taxi 15,vacation taxi,travel,Travel,USD,15.0,out,,en,synthetic,travel transport
+syn-225,train,siem reap bus 12,siem reap bus,travel,Travel,USD,12.0,out,,en,synthetic,intercity bus
+syn-226,train,flight to bangkok 220,flight to bangkok,travel,Travel,USD,220.0,out,,en,synthetic,flight
+syn-227,train,hotel siem reap 45,hotel siem reap,travel,Travel,USD,45.0,out,,en,synthetic,hotel
+syn-228,train,visa extension 35,visa extension,travel,Travel,USD,35.0,out,,en,synthetic,visa
+syn-229,train,airbnb one night 38,airbnb one,travel,Travel,USD,38.0,out,,en,synthetic,lodging
+syn-230,train,tour angkor 30,tour angkor,travel,Travel,USD,30.0,out,,en,synthetic,tour
+syn-231,train,boat ticket 12,boat ticket,travel,Travel,USD,12.0,out,,en,synthetic,ferry
+syn-232,train,luggage fee 10,luggage fee,travel,Travel,USD,10.0,out,,en,synthetic,travel fee
+syn-233,train,travel insurance 18,travel insurance,travel,Travel,USD,18.0,out,,en,synthetic,insurance
+syn-234,train,hotel room 60,hotel room,travel,Travel,USD,60.0,out,,en,synthetic,hotel
+syn-235,train,siem reap trip 90,siem reap trip,travel,Travel,USD,90.0,out,,en,synthetic,trip
+syn-236,train,passport renewal 40,passport renewal,travel,Travel,USD,40.0,out,,en,synthetic,passport
+syn-237,train,flight,flight,travel,Travel,USD,0.0,out,,en,synthetic,no amount
+syn-238,train,atm fee 2,atm fee,other,Other,USD,2.0,out,,en,synthetic,bank fee
+syn-239,train,bank charge 1,bank charge,other,Other,USD,1.0,out,,en,synthetic,bank charge
+syn-240,train,donation pagoda 5000,donation pagoda,other,Other,KHR,5000,out,,en,synthetic,donation
+syn-241,train,cash missing 3,cash missing,other,Other,USD,3.0,out,,en,synthetic,unknown cash
+syn-242,train,tax document 15,tax document,other,Other,USD,15.0,out,,en,synthetic,tax
+syn-243,train,service tip 1,service tip,other,Other,USD,1.0,out,,en,synthetic,tip
+syn-244,train,misc fee 4000,misc fee,other,Other,KHR,4000,out,,en,synthetic,misc
+syn-245,train,unknown receipt 7,unknown receipt,other,Other,USD,7.0,out,,en,synthetic,unknown receipt
+syn-246,train,transfer fee 0.5,transfer fee,other,Other,USD,0.5,out,,en,synthetic,transfer fee
+syn-247,train,printing document 2000,printing document,other,Other,KHR,2000,out,,en,synthetic,misc service
+syn-248,train,atm withdrawal 100,atm withdrawal,other,Other,USD,100.0,out,,en,synthetic,cash
+syn-249,train,bank transfer fee 1.5,bank transfer fee,other,Other,USD,1.5,out,,en,synthetic,bank fee
+syn-250,train,charity donation 20,charity donation,other,Other,USD,20.0,out,,en,synthetic,donation
+syn-251,train,tip for waiter 2,tip for waiter,other,Other,USD,2.0,out,,en,synthetic,tip
+syn-252,train,misc expense 5,misc expense,other,Other,USD,5.0,out,,en,synthetic,misc
+syn-253,train,lost cash 4,lost cash,other,Other,USD,4.0,out,,en,synthetic,unknown cash
+syn-254,train,pagoda donation 10000,pagoda donation,other,Other,KHR,10000,out,,en,synthetic,donation
+syn-255,train,photocopy 1000,photocopy,other,Other,KHR,1000,out,,en,synthetic,misc service
+syn-256,train,service charge 2,service charge,other,Other,USD,2.0,out,,en,synthetic,fee
+syn-257,train,aba transfer fee 0.5,aba transfer fee,other,Other,USD,0.5,out,,en,synthetic,bank fee
+syn-258,train,small tip 1,small tip,other,Other,USD,1.0,out,,en,synthetic,tip
+syn-259,train,unknown charge 6,unknown charge,other,Other,USD,6.0,out,,en,synthetic,unknown
+syn-260,train,laminating document 3000,laminating document,other,Other,KHR,3000,out,,en,synthetic,misc service
+syn-261,train,donation to monk 8000,donation to monk,other,Other,KHR,8000,out,,en,synthetic,donation
+syn-262,train,bank fee,bank fee,other,Other,USD,0.0,out,,en,synthetic,no amount
+syn-263,train,$3.5 iced coffee,iced coffee,food,Food & drinks,USD,3.5,out,,en,synthetic,dollar marker
+syn-264,train,៛5000 phsar snack,phsar snack,food,Food & drinks,KHR,5000,out,,mixed,synthetic,riel symbol marker
+syn-265,train,$5 grab to mall,grab to mall,transport,Transport,USD,5.0,out,,en,synthetic,dollar marker
+syn-266,train,$25 shoes at aeon,shoes at aeon,shopping,Shopping,USD,25.0,out,,en,synthetic,dollar marker
+syn-267,train,$30 internet bill,internet bill,bills,Bills & utilities,USD,30.0,out,,en,synthetic,dollar marker
+syn-268,train,$10 netflix monthly,netflix monthly,ent,Entertainment,USD,10.0,out,,en,synthetic,dollar marker
+syn-269,train,៛10000 phsar groceries,phsar groceries,family,Family & home,KHR,10000,out,,mixed,synthetic,riel symbol marker
+syn-270,train,៛2000 atm fee,atm fee,other,Other,KHR,2000,out,,en,synthetic,riel symbol marker

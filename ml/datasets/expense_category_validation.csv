@@ -1,0 +1,31 @@
+id,split,raw_text,clean_label,category_key,category_label,currency_hint,amount_value,locale_hint,source,notes
+val-001,validation,cafe latte 3,cafe latte,food,Food & drinks,USD,3,en,seed_synthetic,drink
+val-002,validation,baay sach chrouk 7000,baay sach chrouk,food,Food & drinks,KHR,7000,km-Latn,seed_synthetic,local breakfast
+val-003,validation,dinner with dara 12,dinner with dara,food,Food & drinks,USD,12,en,seed_synthetic,meal with person name
+val-004,validation,tuk tuk to aeon 5000,tuk tuk to aeon,transport,Transport,KHR,5000,mixed,seed_synthetic,transport variant
+val-005,validation,fuel for moto 20000,fuel for moto,transport,Transport,KHR,20000,en,seed_synthetic,fuel phrase
+val-006,validation,grab ride rain 9000,grab ride rain,transport,Transport,KHR,9000,en,seed_synthetic,ride hailing
+val-007,validation,metfone top up 2,metfone top up,bills,Bills & utilities,USD,2,en,seed_synthetic,mobile topup merchant
+val-008,validation,edc electricity bill 38,edc electricity bill,bills,Bills & utilities,USD,38,en,seed_synthetic,power merchant
+val-009,validation,monthly rent 350,monthly rent,bills,Bills & utilities,USD,350,en,seed_synthetic,rent phrase
+val-010,validation,new sandals 10,new sandals,shopping,Shopping,USD,10,en,seed_synthetic,shopping item
+val-011,validation,phsar clothes 25000,phsar clothes,shopping,Shopping,KHR,25000,mixed,seed_synthetic,market clothes
+val-012,validation,usb charger 6,usb charger,shopping,Shopping,USD,6,en,seed_synthetic,gadget accessory
+val-013,validation,movie date 9,movie date,ent,Entertainment,USD,9,en,seed_synthetic,cinema phrase
+val-014,validation,game topup 5,game topup,ent,Entertainment,USD,5,en,seed_synthetic,gaming spend
+val-015,validation,bar beer 11,bar beer,ent,Entertainment,USD,11,en,seed_synthetic,night out
+val-016,validation,clinic medicine 16000,clinic medicine,health,Health,KHR,16000,en,seed_synthetic,health phrase
+val-017,validation,eye doctor 18,eye doctor,health,Health,USD,18,en,seed_synthetic,doctor
+val-018,validation,fitness gym 25,fitness gym,health,Health,USD,25,en,seed_synthetic,gym
+val-019,validation,online course 19,online course,education,Education,USD,19,en,seed_synthetic,course
+val-020,validation,school notebook 5000,school notebook,education,Education,KHR,5000,en,seed_synthetic,supplies
+val-021,validation,piano lesson 8,piano lesson,education,Education,USD,8,en,seed_synthetic,lesson
+val-022,validation,mom phone 10,mom phone,family,Family & home,USD,10,en,seed_synthetic,family support
+val-023,validation,kid school snack 6000,kid school snack,family,Family & home,KHR,6000,en,seed_synthetic,child spend
+val-024,validation,home repair 22,home repair,family,Family & home,USD,22,en,seed_synthetic,household
+val-025,validation,hotel in kampot 45,hotel in kampot,travel,Travel,USD,45,en,seed_synthetic,hotel trip
+val-026,validation,airport coffee 4,airport coffee,travel,Travel,USD,4,en,seed_synthetic,travel context ambiguous
+val-027,validation,visa photo 6,visa photo,travel,Travel,USD,6,en,seed_synthetic,visa trip
+val-028,validation,bank atm 1,bank atm,other,Other,USD,1,en,seed_synthetic,bank fee
+val-029,validation,random cash 5,random cash,other,Other,USD,5,en,seed_synthetic,unknown
+val-030,validation,charity box 3000,charity box,other,Other,KHR,3000,en,seed_synthetic,donation

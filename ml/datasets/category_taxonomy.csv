@@ -1,0 +1,11 @@
+category_key,category_label,keywords
+food,Food & drinks,food;lunch;dinner;breakfast;coffee;restaurant;snack;grocery;groceries;meal;eat;cafe;tea;noodle;rice;drink;baay;nom;pizza
+transport,Transport,bus;taxi;grab;fuel;gas;petrol;tuktuk;tuk;moto;ride;uber;parking;transport;passapp;train;ferry
+bills,Bills & utilities,phone;internet;wifi;electric;electricity;water;bill;subscription;topup;top-up;recharge;rent;utility;garbage;mobile
+shopping,Shopping,clothes;shoes;shirt;amazon;shopping;mall;store;gadget;bag;market;phsar;cosmetic;dress;jeans
+ent,Entertainment,netflix;movie;cinema;game;spotify;youtube;concert;bar;beer;party;ticket;karaoke;steam;bookmyshow
+health,Health,pharmacy;doctor;medicine;gym;hospital;clinic;health;dentist;vitamin;glasses;therapy;checkup
+education,Education,school;class;course;book;tuition;study;udemy;coursera;lesson;notebook;stationery;exam
+family,Family & home,mom;dad;family;home;baby;kids;child;parents;household;cleaning;maid;gift;pet
+travel,Travel,flight;hotel;visa;passport;trip;travel;airbnb;booking;tour;airport;bus ticket;vacation;resort
+other,Other,other;misc;unknown;fee;cash;atm;bank;tax;donation;tip

@@ -1,0 +1,101 @@
+id,split,raw_text,clean_label,category_key,category_label,currency_hint,amount_value,locale_hint,source,notes
+train-001,train,coffee 2.5,coffee,food,Food & drinks,USD,2.5,en,seed_synthetic,short merchant
+train-002,train,brown coffee 12000 riels,brown coffee,food,Food & drinks,KHR,12000,mixed,seed_synthetic,cafe merchant
+train-003,train,lunch near office 3,lunch near office,food,Food & drinks,USD,3,en,seed_synthetic,meal
+train-004,train,nom banh chok 5000,nom banh chok,food,Food & drinks,KHR,5000,km-Latn,seed_synthetic,khmer food romanized
+train-005,train,tea shop 1.25,tea shop,food,Food & drinks,USD,1.25,en,seed_synthetic,drink
+train-006,train,phsar grocery 35000,phsar grocery,food,Food & drinks,KHR,35000,mixed,seed_synthetic,market groceries
+train-007,train,pizza dinner 8,pizza dinner,food,Food & drinks,USD,8,en,seed_synthetic,meal
+train-008,train,rice pork breakfast 6000,rice pork breakfast,food,Food & drinks,KHR,6000,en,seed_synthetic,breakfast
+train-009,train,snack at mart 1.5,snack at mart,food,Food & drinks,USD,1.5,en,seed_synthetic,snack
+train-010,train,noodle soup 10000,noodle soup,food,Food & drinks,KHR,10000,en,seed_synthetic,noodle meal
+train-011,train,grab 4000,grab,transport,Transport,KHR,4000,en,seed_synthetic,ride hailing
+train-012,train,tuktuk home 6000,tuktuk home,transport,Transport,KHR,6000,mixed,seed_synthetic,local transport
+train-013,train,passapp to office 8000,passapp to office,transport,Transport,KHR,8000,en,seed_synthetic,ride hailing
+train-014,train,bus card top up 2,bus card top up,transport,Transport,USD,2,en,seed_synthetic,bus transit
+train-015,train,moto fuel 15000,moto fuel,transport,Transport,KHR,15000,en,seed_synthetic,fuel
+train-016,train,parking mall 2000,parking mall,transport,Transport,KHR,2000,en,seed_synthetic,parking
+train-017,train,taxi airport 12,taxi airport,transport,Transport,USD,12,en,seed_synthetic,taxi
+train-018,train,petrol station 5,petrol station,transport,Transport,USD,5,en,seed_synthetic,fuel
+train-019,train,ride to riverside 7000,ride to riverside,transport,Transport,KHR,7000,en,seed_synthetic,ride
+train-020,train,train ticket 4,train ticket,transport,Transport,USD,4,en,seed_synthetic,transit ticket
+train-021,train,phone topup 5,phone topup,bills,Bills & utilities,USD,5,en,seed_synthetic,mobile topup
+train-022,train,wifi bill 25,wifi bill,bills,Bills & utilities,USD,25,en,seed_synthetic,internet
+train-023,train,electricity 30,electricity,bills,Bills & utilities,USD,30,en,seed_synthetic,power bill
+train-024,train,water bill 12000,water bill,bills,Bills & utilities,KHR,12000,en,seed_synthetic,utility
+train-025,train,rent payment 350,rent payment,bills,Bills & utilities,USD,350,en,seed_synthetic,rent
+train-026,train,netflix monthly 10,netflix monthly,bills,Bills & utilities,USD,10,en,seed_synthetic,subscription can be bills
+train-027,train,cellcard recharge 2,cellcard recharge,bills,Bills & utilities,USD,2,en,seed_synthetic,mobile recharge
+train-028,train,garbage fee 5000,garbage fee,bills,Bills & utilities,KHR,5000,en,seed_synthetic,home utility
+train-029,train,app store subscription 3,app store subscription,bills,Bills & utilities,USD,3,en,seed_synthetic,digital subscription
+train-030,train,internet fiber 28,internet fiber,bills,Bills & utilities,USD,28,en,seed_synthetic,internet
+train-031,train,shirt at mall 12,shirt at mall,shopping,Shopping,USD,12,en,seed_synthetic,clothes
+train-032,train,shoes 25,shoes,shopping,Shopping,USD,25,en,seed_synthetic,shoes
+train-033,train,phsar bag 18000,phsar bag,shopping,Shopping,KHR,18000,mixed,seed_synthetic,basic shopping
+train-034,train,amazon cable 9,amazon cable,shopping,Shopping,USD,9,en,seed_synthetic,gadget accessory
+train-035,train,cosmetic store 7,cosmetic store,shopping,Shopping,USD,7,en,seed_synthetic,cosmetics
+train-036,train,jeans sale 18,jeans sale,shopping,Shopping,USD,18,en,seed_synthetic,clothes
+train-037,train,phone case 4,phone case,shopping,Shopping,USD,4,en,seed_synthetic,accessory
+train-038,train,market umbrella 12000,market umbrella,shopping,Shopping,KHR,12000,en,seed_synthetic,market item
+train-039,train,bookstore pen 2,bookstore pen,shopping,Shopping,USD,2,en,seed_synthetic,store item
+train-040,train,birthday gift 15,birthday gift,shopping,Shopping,USD,15,en,seed_synthetic,gift purchase
+train-041,train,netflix 10,netflix,ent,Entertainment,USD,10,en,seed_synthetic,streaming
+train-042,train,cinema ticket 5,cinema ticket,ent,Entertainment,USD,5,en,seed_synthetic,movie
+train-043,train,spotify 4.99,spotify,ent,Entertainment,USD,4.99,en,seed_synthetic,music streaming
+train-044,train,youtube premium 3,youtube premium,ent,Entertainment,USD,3,en,seed_synthetic,video subscription
+train-045,train,karaoke night 12,karaoke night,ent,Entertainment,USD,12,en,seed_synthetic,night out
+train-046,train,beer with friends 8,beer with friends,ent,Entertainment,USD,8,en,seed_synthetic,bar spend
+train-047,train,steam game 6,steam game,ent,Entertainment,USD,6,en,seed_synthetic,gaming
+train-048,train,concert ticket 20,concert ticket,ent,Entertainment,USD,20,en,seed_synthetic,event
+train-049,train,party snacks 30000,party snacks,ent,Entertainment,KHR,30000,en,seed_synthetic,party spend
+train-050,train,pool table 4,pool table,ent,Entertainment,USD,4,en,seed_synthetic,recreation
+train-051,train,pharmacy 6,pharmacy,health,Health,USD,6,en,seed_synthetic,medicine
+train-052,train,doctor visit 20,doctor visit,health,Health,USD,20,en,seed_synthetic,clinic
+train-053,train,medicine for cold 12000,medicine for cold,health,Health,KHR,12000,en,seed_synthetic,medicine
+train-054,train,gym monthly 30,gym monthly,health,Health,USD,30,en,seed_synthetic,gym
+train-055,train,dentist cleaning 25,dentist cleaning,health,Health,USD,25,en,seed_synthetic,dental
+train-056,train,vitamin bottle 8,vitamin bottle,health,Health,USD,8,en,seed_synthetic,supplement
+train-057,train,hospital checkup 40,hospital checkup,health,Health,USD,40,en,seed_synthetic,checkup
+train-058,train,clinic fee 15,clinic fee,health,Health,USD,15,en,seed_synthetic,clinic
+train-059,train,glasses repair 5,glasses repair,health,Health,USD,5,en,seed_synthetic,medical accessory
+train-060,train,therapy session 35,therapy session,health,Health,USD,35,en,seed_synthetic,therapy
+train-061,train,school fee 100,school fee,education,Education,USD,100,en,seed_synthetic,tuition
+train-062,train,english class 20,english class,education,Education,USD,20,en,seed_synthetic,class
+train-063,train,course udemy 12,course udemy,education,Education,USD,12,en,seed_synthetic,online course
+train-064,train,notebook pen 6000,notebook pen,education,Education,KHR,6000,en,seed_synthetic,school supplies
+train-065,train,book for study 9,book for study,education,Education,USD,9,en,seed_synthetic,book
+train-066,train,exam fee 15,exam fee,education,Education,USD,15,en,seed_synthetic,exam
+train-067,train,khmer lesson 10,khmer lesson,education,Education,USD,10,en,seed_synthetic,lesson
+train-068,train,coursera certificate 49,coursera certificate,education,Education,USD,49,en,seed_synthetic,certificate
+train-069,train,stationery shop 7000,stationery shop,education,Education,KHR,7000,en,seed_synthetic,stationery
+train-070,train,training workshop 25,training workshop,education,Education,USD,25,en,seed_synthetic,workshop
+train-071,train,mom groceries 20,mom groceries,family,Family & home,USD,20,en,seed_synthetic,family support
+train-072,train,dad medicine 15,dad medicine,family,Family & home,USD,15,en,seed_synthetic,parent support
+train-073,train,baby diapers 12,baby diapers,family,Family & home,USD,12,en,seed_synthetic,kids
+train-074,train,kids snack 8000,kids snack,family,Family & home,KHR,8000,en,seed_synthetic,child spend
+train-075,train,home cleaning 10,home cleaning,family,Family & home,USD,10,en,seed_synthetic,household
+train-076,train,pet food 6,pet food,family,Family & home,USD,6,en,seed_synthetic,pet
+train-077,train,parent gift 18,parent gift,family,Family & home,USD,18,en,seed_synthetic,family gift
+train-078,train,maid payment 30,maid payment,family,Family & home,USD,30,en,seed_synthetic,home help
+train-079,train,household soap 9000,household soap,family,Family & home,KHR,9000,en,seed_synthetic,home supply
+train-080,train,sister birthday 20,sister birthday,family,Family & home,USD,20,en,seed_synthetic,family occasion
+train-081,train,flight ticket 180,flight ticket,travel,Travel,USD,180,en,seed_synthetic,flight
+train-082,train,hotel deposit 50,hotel deposit,travel,Travel,USD,50,en,seed_synthetic,hotel
+train-083,train,visa fee 35,visa fee,travel,Travel,USD,35,en,seed_synthetic,visa
+train-084,train,passport photo 5,passport photo,travel,Travel,USD,5,en,seed_synthetic,passport
+train-085,train,airport bus 3,airport bus,travel,Travel,USD,3,en,seed_synthetic,airport trip
+train-086,train,airbnb booking 70,airbnb booking,travel,Travel,USD,70,en,seed_synthetic,lodging
+train-087,train,tour guide 25,tour guide,travel,Travel,USD,25,en,seed_synthetic,tour
+train-088,train,resort deposit 40,resort deposit,travel,Travel,USD,40,en,seed_synthetic,resort
+train-089,train,vacation taxi 15,vacation taxi,travel,Travel,USD,15,en,seed_synthetic,travel transport
+train-090,train,bus ticket siem reap 10,bus ticket siem reap,travel,Travel,USD,10,en,seed_synthetic,intercity
+train-091,train,atm fee 2,atm fee,other,Other,USD,2,en,seed_synthetic,bank fee
+train-092,train,bank charge 1,bank charge,other,Other,USD,1,en,seed_synthetic,bank charge
+train-093,train,donation pagoda 5000,donation pagoda,other,Other,KHR,5000,en,seed_synthetic,donation
+train-094,train,cash missing 3,cash missing,other,Other,USD,3,en,seed_synthetic,unknown cash
+train-095,train,tax document 15,tax document,other,Other,USD,15,en,seed_synthetic,tax
+train-096,train,service tip 1,service tip,other,Other,USD,1,en,seed_synthetic,tip
+train-097,train,misc fee 4000,misc fee,other,Other,KHR,4000,en,seed_synthetic,misc
+train-098,train,unknown receipt 7,unknown receipt,other,Other,USD,7,en,seed_synthetic,unknown receipt
+train-099,train,transfer fee 0.5,transfer fee,other,Other,USD,0.5,en,seed_synthetic,transfer fee
+train-100,train,printing document 2000,printing document,other,Other,KHR,2000,en,seed_synthetic,misc service

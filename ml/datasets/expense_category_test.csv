@@ -1,0 +1,31 @@
+id,split,raw_text,clean_label,category_key,category_label,currency_hint,amount_value,locale_hint,source,notes
+test-001,test,iced coffee brown 2.75,iced coffee brown,food,Food & drinks,USD,2.75,en,seed_synthetic,cafe variant
+test-002,test,street noodle lunch 9000,street noodle lunch,food,Food & drinks,KHR,9000,en,seed_synthetic,meal variant
+test-003,test,milk tea 1.5,milk tea,food,Food & drinks,USD,1.5,en,seed_synthetic,drink variant
+test-004,test,passapp night ride 10000,passapp night ride,transport,Transport,KHR,10000,en,seed_synthetic,ride variant
+test-005,test,bus to work 1500,bus to work,transport,Transport,KHR,1500,en,seed_synthetic,bus commute
+test-006,test,parking ticket 3000,parking ticket,transport,Transport,KHR,3000,en,seed_synthetic,parking variant
+test-007,test,smart recharge 1.5,smart recharge,bills,Bills & utilities,USD,1.5,en,seed_synthetic,mobile merchant
+test-008,test,water utility 3,water utility,bills,Bills & utilities,USD,3,en,seed_synthetic,utility variant
+test-009,test,home internet 27,home internet,bills,Bills & utilities,USD,27,en,seed_synthetic,internet variant
+test-010,test,new backpack 14,new backpack,shopping,Shopping,USD,14,en,seed_synthetic,bag variant
+test-011,test,market dress 22000,market dress,shopping,Shopping,KHR,22000,en,seed_synthetic,clothing variant
+test-012,test,phone charger 5,phone charger,shopping,Shopping,USD,5,en,seed_synthetic,gadget variant
+test-013,test,spotify family 7.99,spotify family,ent,Entertainment,USD,7.99,en,seed_synthetic,streaming variant
+test-014,test,concert beer 6,concert beer,ent,Entertainment,USD,6,en,seed_synthetic,event night
+test-015,test,cinema popcorn 4,cinema popcorn,ent,Entertainment,USD,4,en,seed_synthetic,movie context
+test-016,test,pharmacy vitamins 11,pharmacy vitamins,health,Health,USD,11,en,seed_synthetic,pharmacy variant
+test-017,test,dental checkup 30,dental checkup,health,Health,USD,30,en,seed_synthetic,dental variant
+test-018,test,hospital parking 2000,hospital parking,health,Health,KHR,2000,en,seed_synthetic,health context ambiguous
+test-019,test,english tuition 40,english tuition,education,Education,USD,40,en,seed_synthetic,tuition variant
+test-020,test,exam paper printing 4000,exam paper printing,education,Education,KHR,4000,en,seed_synthetic,education context
+test-021,test,workshop ticket 15,workshop ticket,education,Education,USD,15,en,seed_synthetic,training
+test-022,test,dad allowance 50,dad allowance,family,Family & home,USD,50,en,seed_synthetic,parent support
+test-023,test,baby milk 9,baby milk,family,Family & home,USD,9,en,seed_synthetic,baby item
+test-024,test,house cleaning spray 7000,house cleaning spray,family,Family & home,KHR,7000,en,seed_synthetic,household
+test-025,test,siem reap hotel 60,siem reap hotel,travel,Travel,USD,60,en,seed_synthetic,lodging variant
+test-026,test,airport taxi 13,airport taxi,travel,Travel,USD,13,en,seed_synthetic,travel transport ambiguous
+test-027,test,passport renewal 100,passport renewal,travel,Travel,USD,100,en,seed_synthetic,passport variant
+test-028,test,aba transfer fee 0.25,aba transfer fee,other,Other,USD,0.25,en,seed_synthetic,bank fee variant
+test-029,test,temple donation 4000,temple donation,other,Other,KHR,4000,en,seed_synthetic,donation variant
+test-030,test,unknown small receipt 2,unknown small receipt,other,Other,USD,2,en,seed_synthetic,unknown variant
