@@ -60,6 +60,9 @@ export const INITIAL_MODEL: AppModel = {
   fastEntryMemory: {},
   lastActiveDay: INITIAL_DAY,
   lastActiveMonth: INITIAL_MONTH,
+  merchantCorrections: {},
+  categoryTrainingExamples: [],
+  categoryModelVersion: null,
 };
 
 export const INITIAL_DRAFTS: Drafts = {

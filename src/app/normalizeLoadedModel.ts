@@ -90,6 +90,29 @@ export function normalizeLoadedModel(state: PersistedAppModel | undefined, today
   const shouldSeedDefaultCategories = raw.defaultCategoriesSeeded !== true && (!rawCategories || rawCategories.length === 0);
   const categories = shouldSeedDefaultCategories ? INITIAL_MODEL.categories : rawCategories ?? INITIAL_MODEL.categories;
   const fastEntryMemory = buildFastEntryMemory(expenses, categories);
+  const merchantCorrections =
+    raw.merchantCorrections && typeof raw.merchantCorrections === 'object'
+      ? Object.fromEntries(
+          Object.entries(raw.merchantCorrections).filter(
+            ([key, value]) => typeof key === 'string' && typeof value === 'string',
+          ),
+        )
+      : INITIAL_MODEL.merchantCorrections;
+  const categoryTrainingExamples = Array.isArray(raw.categoryTrainingExamples)
+    ? raw.categoryTrainingExamples.filter(
+        (row): row is AppModel['categoryTrainingExamples'][number] =>
+          Boolean(row)
+          && typeof row === 'object'
+          && typeof row.id === 'string'
+          && typeof row.rawText === 'string'
+          && typeof row.cleanLabel === 'string'
+          && typeof row.categoryKey === 'string'
+          && typeof row.corrected === 'boolean'
+          && typeof row.createdAtDay === 'string',
+      )
+    : INITIAL_MODEL.categoryTrainingExamples;
+  const categoryModelVersion =
+    typeof raw.categoryModelVersion === 'string' ? raw.categoryModelVersion : INITIAL_MODEL.categoryModelVersion;
   let next: AppModel = {
     ...INITIAL_MODEL,
     ...raw,
@@ -112,6 +135,9 @@ export function normalizeLoadedModel(state: PersistedAppModel | undefined, today
     exchangeRateLastFetchedDay,
     exchangeRateSource,
     language,
+    merchantCorrections,
+    categoryTrainingExamples,
+    categoryModelVersion,
   };
 
   const rollover = applyDateRollover({

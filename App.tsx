@@ -39,6 +39,9 @@ import { saveAppState, loadAppState } from './src/db/appStorage';
 import { backupFileName, deriveRestorePreview, parsePersistedBackup, stringifyPersistedBackup, type RestorePreview } from './src/db/appBackup';
 import { BALANCED, SAVER, summarizeBudget } from './src/domain/budget';
 import { parseExpenseText } from './src/domain/expenseParser';
+import { applyLearningOnCategoryEdit, applyLearningOnExpenseSave, applyLearningOnExpenseSaveBatch } from './src/domain/categoryLearning';
+import { suggestCategoryForAba, suggestCategoryForAddText } from './src/domain/categorySuggestion';
+import { cleanAbaDescription, cleanFreeTextLabel } from './src/domain/expenseLabel';
 import { bestAndWorst, buildHeatmap } from './src/domain/insights';
 import { formatMoney, formatMoney0, money } from './src/domain/money';
 import { addIsoDays, budgetCycleForDay, budgetCycleKeyForDay, filterExpensesByBudgetCycle, filterExpensesByDay, isIsoDay, isIsoDayInBudgetCycle, isoDayFromDate, isoMonthFromDay } from './src/domain/dates';
@@ -46,12 +49,18 @@ import { categoryFor } from './src/domain/categories';
 import { isExpenseTransaction, isIncomeTransaction, transactionKind } from './src/domain/transactions';
 import { filterTransactions } from './src/domain/transactionFilters';
 import { normalizeDueDay, recurringPaidBillKey, upcomingRecurringPayments } from './src/domain/recurring';
-import { isDuplicateAbaTransaction, parseAbaStatementText, parseAbaStatementWorkbookBase64, toExpenseFromAbaTransaction } from './src/domain/abaStatement';
-import type { AppModel, Currency, Drafts, Expense, RecurringPayment, Screen, Sheet } from './src/app/types';
+import {
+  dedupeAbaTransactions,
+  parseAbaStatementCsvText,
+  parseAbaStatementText,
+  parseAbaStatementWorkbookBase64,
+  toExpenseFromAbaTransaction,
+} from './src/domain/abaStatement';
+import type { AppModel, Currency, Drafts, Expense, RecurringPayment, Screen, Sheet, TransactionKind } from './src/app/types';
 import { INITIAL_DRAFTS, INITIAL_MODEL, PALETTE, RATE } from './src/app/initialState';
 import { FIRST_SETUP_ONBOARDING_STEP, LAST_SETUP_ONBOARDING_STEP, WELCOME_ONBOARDING_STEP, normalizeLoadedModel, type PersistedAppModel } from './src/app/normalizeLoadedModel';
 import { LANGUAGE_LABELS, categoryLabel, t } from './src/app/i18n';
-import { applyQuickAmountChip, buildFastEntryMemory, QUICK_AMOUNT_CHIPS, rememberedFastEntryCategory } from './src/app/fastEntryMemory';
+import { applyQuickAmountChip, buildFastEntryMemory, QUICK_AMOUNT_CHIPS } from './src/app/fastEntryMemory';
 import { fetchUsdToKhrRate, shouldRefreshExchangeRate, USD_TO_KHR_RATE_SOURCE } from './src/services/exchangeRate';
 import { dueText, greetingFor, monthLabel, shiftIsoMonth } from './src/app/dateLabels';
 import { amountLabel, amountUsd, csvEscape, formatClock, heatColor, khr, monthsToGo, nowTime, ordinal, round2, sheetTitle, usd, usd0 } from './src/app/formatters';
@@ -100,6 +109,11 @@ function AppContent() {
   const rateRefreshInFlightDay = useRef<string | null>(null);
   const [recentExpenseId, setRecentExpenseId] = useState<string | null>(null);
   const sweepInProgressRef = useRef(false);
+  const addSuggestionCacheRef = useRef<{
+    key: string;
+    model: AppModel;
+    value: ReturnType<typeof suggestCategoryForAddText>;
+  } | null>(null);
   const [fontsLoaded] = useFonts({
     PlusJakartaSans_400Regular,
     PlusJakartaSans_500Medium,
@@ -213,8 +227,9 @@ function AppContent() {
   const rolloverYesterday = money(Math.round(model.rolloverUsd * 100), 'USD');
   const budget = summarizeBudget({ ...budgetInput, rolloverYesterday });
   const parsed = parseExpenseText(drafts.addText);
-  const parsedCat = categoryFor(model.categories, drafts.selectedCat || parsed.categoryKey);
   const parsedAmount = parsed.amount;
+  const addSuggestion = suggestionForAddText(drafts.addText, drafts.transactionKind, parsed);
+  const parsedCat = categoryFor(model.categories, drafts.selectedCat || addSuggestion.categoryKey);
   const ringColor = budget.status === 'over' ? theme.red : budget.ringPct < 0.35 ? theme.amber : theme.green;
   const selectedCategory = categoryFor(model.categories, drafts.selectedCat);
   const selectedCategoryLabel = categoryLabel(selectedCategory, model.language);
@@ -254,9 +269,25 @@ function AppContent() {
     setModel((current) => recipe(current));
   }
 
-  function categoryKeyForAddText(value: string) {
-    const next = parseExpenseText(value);
-    return rememberedFastEntryCategory(next.label, model.fastEntryMemory, model.categories) ?? next.categoryKey;
+  // Cache the last classifier result so the render body and the onChangeText /
+  // quick-amount handlers don't each run predictCategory (cosine similarity over
+  // every class prototype) on the same text — the expensive pass now runs at
+  // most once per (text, kind, model).
+  function suggestionForAddText(
+    value: string,
+    kind: TransactionKind,
+    next: ReturnType<typeof parseExpenseText> = parseExpenseText(value),
+  ) {
+    const key = `${kind} ${value}`;
+    const cached = addSuggestionCacheRef.current;
+    if (cached && cached.key === key && cached.model === model) return cached.value;
+    const result = suggestCategoryForAddText(model, value, next, kind);
+    addSuggestionCacheRef.current = { key, model, value: result };
+    return result;
+  }
+
+  function categoryKeyForAddText(value: string, kind: TransactionKind = drafts.transactionKind) {
+    return suggestionForAddText(value, kind).categoryKey;
   }
   function go(screen: Screen) {
     if (screen === 'add') setDrafts((current) => ({ ...current, expenseDate: today, transactionKind: 'expense' }));
@@ -326,7 +357,8 @@ function AppContent() {
     }
     const kind = drafts.transactionKind;
     const isIncome = kind === 'income';
-    const chosenKey = drafts.selectedCat || parsed.categoryKey;
+    const suggestion = suggestionForAddText(drafts.addText, kind, parsed);
+    const chosenKey = drafts.selectedCat || suggestion.categoryKey;
     const category = categoryFor(model.categories, chosenKey);
     const expenseCat = isIncome ? 'income' : model.categories.some((item) => item.key === chosenKey) ? chosenKey : category.key;
     const amount = parsedAmount.currency === 'USD' ? parsedAmount.amountMinor / 100 : parsedAmount.amountMinor;
@@ -340,6 +372,7 @@ function AppContent() {
       date: expenseDate,
       kind,
       note: drafts.addNote.trim() || undefined,
+      prediction: isIncome ? undefined : suggestion.prediction,
     };
     const usdValue = amountUsd(expense.amount, expense.cur, model.rate);
     const adjustCurrentMonth = !isIncome && isIsoDayInBudgetCycle(expense.date, today, model.budgetCycleStartDay);
@@ -348,13 +381,20 @@ function AppContent() {
     updateModel((current) => {
       const expenses = [expense, ...current.expenses];
       const categories = adjustCurrentMonth ? current.categories.map((item) => (item.key === expenseCat ? { ...item, spentUsd: item.spentUsd + usdValue } : item)) : current.categories;
-      return {
-        ...current,
-        screen: 'home',
-        expenses,
-        categories,
-        fastEntryMemory: buildFastEntryMemory(expenses, categories),
-      };
+      const withLearning = isIncome
+        ? { ...current, screen: 'home' as Screen, expenses, categories, fastEntryMemory: buildFastEntryMemory(expenses, categories) }
+        : applyLearningOnExpenseSave(
+            { ...current, screen: 'home' as Screen, expenses, categories, fastEntryMemory: buildFastEntryMemory(expenses, categories) },
+            {
+              rawText: drafts.addText,
+              cleanLabel: suggestion.cleanLabel,
+              categoryKey: expenseCat,
+              createdAtDay: expenseDate,
+              prediction: suggestion.prediction,
+              sourceType: 'free_text',
+            },
+          );
+      return withLearning;
     });
     setDrafts((current) => ({ ...current, addText: '', addNote: '', selectedCat: '', expenseDate: today, transactionKind: 'expense' }));
     showToast(`Added ${isIncome ? 'income' : expense.name}`, 'Undo', () => {
@@ -419,6 +459,14 @@ function AppContent() {
     const note = drafts.addNote.trim() || undefined;
     const oldCurrentMonth = isExpenseTransaction(selectedExpense) && isIsoDayInBudgetCycle(selectedExpense.date, today, model.budgetCycleStartDay);
     const newCurrentMonth = nextKind === 'expense' && isIsoDayInBudgetCycle(expenseDate, today, model.budgetCycleStartDay);
+    // Must match the key the suggestion path derives, else the correction never
+    // resolves. ABA imports clean via cleanAbaDescription, free text via
+    // cleanFreeTextLabel — not a raw lowercased name.
+    const cleanLabel =
+      selectedExpense.prediction?.cleanLabel ??
+      (selectedExpense.time === 'imported'
+        ? cleanAbaDescription(selectedExpense.name)
+        : cleanFreeTextLabel(selectedExpense.name));
     updateModel((current) => {
       const expenses = current.expenses.map((expense) => (expense.id === selectedExpense.id ? { ...expense, amount, cur: drafts.entryCur, note, cat: nextCat, date: expenseDate, kind: nextKind } : expense));
       const categories = oldCurrentMonth || newCurrentMonth ? current.categories.map((category) => {
@@ -427,12 +475,21 @@ function AppContent() {
         if (newCurrentMonth && category.key === nextCat) spentUsd += newUsd;
         return { ...category, spentUsd: Math.max(0, spentUsd) };
       }) : current.categories;
-      return {
+      const base = {
         ...current,
         expenses,
         categories,
         fastEntryMemory: buildFastEntryMemory(expenses, categories),
       };
+      if (nextKind !== 'expense' || nextCat === selectedExpense.cat) return base;
+      return applyLearningOnCategoryEdit(base, {
+        expense: selectedExpense,
+        previousCategoryKey: selectedExpense.cat,
+        nextCategoryKey: nextCat,
+        cleanLabel,
+        rawText: selectedExpense.name,
+        createdAtDay: expenseDate,
+      });
     });
     hapticSuccess();
     setDrafts((current) => ({ ...current, addNote: '' }));
@@ -778,26 +835,58 @@ function AppContent() {
       const fileName = asset.name?.toLowerCase() ?? '';
       const mimeType = asset.mimeType?.toLowerCase() ?? '';
       const isWorkbook = fileName.endsWith('.xlsx') || fileName.endsWith('.xls') || mimeType.includes('spreadsheet') || mimeType.includes('excel');
+      const isCsv = fileName.endsWith('.csv') || mimeType.includes('csv');
+      const text = await FileSystem.readAsStringAsync(uri, {
+        encoding: isWorkbook ? FileSystem.EncodingType.Base64 : FileSystem.EncodingType.UTF8,
+      });
       const parsed = isWorkbook
-        ? parseAbaStatementWorkbookBase64(await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.Base64 }))
-        : parseAbaStatementText(await FileSystem.readAsStringAsync(uri, { encoding: FileSystem.EncodingType.UTF8 }));
-      const imported = parsed.transactions.filter((transaction) => !isDuplicateAbaTransaction(model.expenses, transaction));
+        ? parseAbaStatementWorkbookBase64(text)
+        : isCsv
+          ? parseAbaStatementCsvText(text)
+          : parseAbaStatementText(text);
+      // Dedupe against stored expenses AND within the batch (a single file can
+      // contain repeated rows), so nothing is double-counted.
+      const imported = dedupeAbaTransactions(model.expenses, parsed.transactions);
       const skipped = parsed.transactions.length - imported.length;
       if (imported.length === 0) {
         showToast(parsed.transactions.length > 0 ? 'ABA statement already tracked' : 'No ABA transactions found');
         hapticWarning();
         return;
       }
-      updateModel((current) => ({
-        ...current,
-        expenses: [
-          ...current.expenses,
-          ...imported
-            .filter((transaction) => !isDuplicateAbaTransaction(current.expenses, transaction))
-            .map((transaction) => toExpenseFromAbaTransaction(transaction, transaction.kind === 'income' ? 'income' : categoryKeyForAddText(transaction.name))),
-        ],
-      }));
-      showToast(`Imported ${imported.length} · skipped ${skipped} already tracked`);
+      if (parsed.warnings.length > 0) {
+        console.warn(`ABA import: ${parsed.warnings.length} balance continuity warning(s)`);
+      }
+      updateModel((current) => {
+        const learningInputs: Parameters<typeof applyLearningOnExpenseSaveBatch>[1][number][] = [];
+        const newExpenses = imported.map((transaction) => {
+          const suggestion = suggestCategoryForAba(current, transaction);
+          const cat = transaction.kind === 'income' ? 'income' : suggestion.categoryKey;
+          const expense = toExpenseFromAbaTransaction(
+            transaction,
+            cat,
+            transaction.kind === 'income' ? undefined : suggestion.prediction,
+          );
+          if (transaction.kind === 'expense') {
+            learningInputs.push({
+              rawText: transaction.name,
+              cleanLabel: suggestion.cleanLabel,
+              categoryKey: cat,
+              createdAtDay: transaction.date,
+              prediction: suggestion.prediction,
+              sourceType: 'aba_statement',
+              kindHint: 'purchase',
+            });
+          }
+          return expense;
+        });
+        const withLearning = applyLearningOnExpenseSaveBatch(current, learningInputs);
+        return {
+          ...withLearning,
+          expenses: [...withLearning.expenses, ...newExpenses],
+        };
+      });
+      const warningSuffix = parsed.warnings.length > 0 ? ` · ${parsed.warnings.length} balance warning(s)` : '';
+      showToast(`Imported ${imported.length} · skipped ${skipped} already tracked${warningSuffix}`);
       hapticSuccess();
     } catch (error) {
       console.warn('Could not import ABA statement', error);

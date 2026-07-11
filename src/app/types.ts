@@ -14,6 +14,15 @@ export type Category = {
   budgetUsd: number;
 };
 
+export type ExpensePredictionSource = 'correction' | 'keyword' | 'classifier' | 'fallback';
+
+export type ExpensePrediction = {
+  cleanLabel: string;
+  predictedCategoryKey: string;
+  predictionSource: ExpensePredictionSource;
+  confidence: number;
+};
+
 export type Expense = {
   id: string;
   name: string;
@@ -24,7 +33,25 @@ export type Expense = {
   date: string;
   kind?: TransactionKind;
   note?: string;
+  prediction?: ExpensePrediction;
+  importSourceHash?: string;
 };
+
+export type CategoryTrainingExample = {
+  id: string;
+  rawText: string;
+  cleanLabel: string;
+  categoryKey: string;
+  predictedCategoryKey?: string;
+  predictionSource?: string;
+  confidence?: number;
+  corrected: boolean;
+  createdAtDay: string;
+  sourceType?: 'free_text' | 'aba_statement';
+  kindHint?: 'purchase' | 'transfer_in' | 'transfer_out' | 'other';
+  localeHint?: 'en' | 'km-Latn' | 'mixed';
+};
+
 export type FastEntryMemory = Record<string, { cat: string; lastUsed: string }>;
 
 
@@ -90,6 +117,9 @@ export type AppModel = {
   lastActiveMonth: string;
   paidBills: Record<string, boolean>;
   fastEntryMemory: FastEntryMemory;
+  merchantCorrections: Record<string, string>;
+  categoryTrainingExamples: CategoryTrainingExample[];
+  categoryModelVersion: string | null;
 };
 
 export type Drafts = {
