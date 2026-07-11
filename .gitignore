@@ -43,3 +43,13 @@ yarn-error.*
 .omx/
 
 design_handoff_sabai_finance/
+
+# python
+__pycache__/
+*.pyc
+
+# raw bank statements (PII) — keep local, never commit; use ml/datasets/ instead
+/statement_*.xlsx
+/statement_*.xls
+/statement_*.csv
+/combined_statements_*.csv
