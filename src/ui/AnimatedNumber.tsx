@@ -1,9 +1,9 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, type TextProps } from 'react-native';
+import { useEffect, useMemo, useRef, useState } from "react";
+import { Animated, type TextProps } from "react-native";
 
-import { AppText } from './AppText';
-import { MOTION_DURATION, MOTION_EASING, shouldAnimate } from './motion';
-import { useReducedMotion } from './useReducedMotion';
+import { AppText } from "./AppText";
+import { MOTION_DURATION, MOTION_EASING, shouldAnimate } from "./motion";
+import { useReducedMotion } from "./useReducedMotion";
 
 export type AnimatedNumberProps = TextProps & {
   value: number;

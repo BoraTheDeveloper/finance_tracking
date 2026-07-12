@@ -1,4 +1,4 @@
-import * as Haptics from 'expo-haptics';
+import * as Haptics from "expo-haptics";
 
 async function safely(run: () => Promise<void>) {
   try {
@@ -14,13 +14,19 @@ export function hapticSelect() {
 }
 
 export function hapticSuccess() {
-  void safely(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success));
+  void safely(() =>
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success),
+  );
 }
 
 export function hapticWarning() {
-  void safely(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning));
+  void safely(() =>
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning),
+  );
 }
 
 export function hapticError() {
-  void safely(() => Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error));
+  void safely(() =>
+    Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error),
+  );
 }

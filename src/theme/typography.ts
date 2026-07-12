@@ -1,20 +1,20 @@
 // Plus Jakarta Sans — the primary (Latin/English) type family.
 export const FONT = {
-  regular: 'PlusJakartaSans_400Regular',
-  medium: 'PlusJakartaSans_500Medium',
-  semibold: 'PlusJakartaSans_600SemiBold',
-  bold: 'PlusJakartaSans_700Bold',
-  extrabold: 'PlusJakartaSans_800ExtraBold',
+  regular: "PlusJakartaSans_400Regular",
+  medium: "PlusJakartaSans_500Medium",
+  semibold: "PlusJakartaSans_600SemiBold",
+  bold: "PlusJakartaSans_700Bold",
+  extrabold: "PlusJakartaSans_800ExtraBold",
 };
 
 // Kantumruy Pro — used for Khmer script (e.g. the riel sign ៛). Kantumruy has no
 // 800 weight, so the extrabold tier maps to its 700 Bold.
 export const KHMER_FONT = {
-  regular: 'KantumruyPro_400Regular',
-  medium: 'KantumruyPro_500Medium',
-  semibold: 'KantumruyPro_600SemiBold',
-  bold: 'KantumruyPro_700Bold',
-  extrabold: 'KantumruyPro_700Bold',
+  regular: "KantumruyPro_400Regular",
+  medium: "KantumruyPro_500Medium",
+  semibold: "KantumruyPro_600SemiBold",
+  bold: "KantumruyPro_700Bold",
+  extrabold: "KantumruyPro_700Bold",
 };
 
 // Maps each Jakarta family to its Kantumruy counterpart so a Khmer-bearing string

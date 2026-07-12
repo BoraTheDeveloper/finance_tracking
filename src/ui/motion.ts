@@ -1,4 +1,4 @@
-import { Easing } from 'react-native';
+import { Easing } from "react-native";
 
 export const MOTION_DURATION = {
   press: 100,

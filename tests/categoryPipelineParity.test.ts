@@ -1,8 +1,8 @@
 /// <reference types="node" />
-import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
-import { predictCategory } from '../src/domain/categoryClassifier';
-import type { Currency } from '../src/app/types';
+import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { predictCategory } from "../src/domain/categoryClassifier";
+import type { Currency } from "../src/app/types";
 
 // Serve-fidelity guard: the Python pipeline reports metrics for a centroid+k-NN
 // ensemble on full prototypes, but the app ships only the sparsified centroids
@@ -15,29 +15,34 @@ import type { Currency } from '../src/app/types';
 
 function splitCsvLine(line: string): string[] {
   const out: string[] = [];
-  let cur = '';
+  let cur = "";
   let quoted = false;
   for (let i = 0; i < line.length; i += 1) {
     const c = line[i];
     if (quoted) {
       if (c === '"') {
-        if (line[i + 1] === '"') { cur += '"'; i += 1; } else quoted = false;
+        if (line[i + 1] === '"') {
+          cur += '"';
+          i += 1;
+        } else quoted = false;
       } else cur += c;
     } else if (c === '"') quoted = true;
-    else if (c === ',') { out.push(cur); cur = ''; }
-    else cur += c;
+    else if (c === ",") {
+      out.push(cur);
+      cur = "";
+    } else cur += c;
   }
   out.push(cur);
   return out;
 }
 
 function shippedAccuracy(csvPath: string) {
-  const lines = readFileSync(csvPath, 'utf8').trim().split(/\r?\n/);
+  const lines = readFileSync(csvPath, "utf8").trim().split(/\r?\n/);
   const header = splitCsvLine(lines[0]);
-  const iClean = header.indexOf('clean_label');
-  const iCat = header.indexOf('category_key');
-  const iCcy = header.indexOf('currency_hint');
-  const iAmt = header.indexOf('amount_value');
+  const iClean = header.indexOf("clean_label");
+  const iCat = header.indexOf("category_key");
+  const iCcy = header.indexOf("currency_hint");
+  const iAmt = header.indexOf("amount_value");
 
   let correct = 0;
   let total = 0;
@@ -47,11 +52,11 @@ function shippedAccuracy(csvPath: string) {
     if (f.length <= iCat) continue;
     const result = predictCategory({
       cleanLabel: f[iClean],
-      currency: (f[iCcy] || 'USD') as Currency,
+      currency: (f[iCcy] || "USD") as Currency,
       amount: Number(f[iAmt] || 0),
       // Match the pipeline's eval defaults for these datasets.
-      direction: 'out',
-      kindHint: '',
+      direction: "out",
+      kindHint: "",
     });
     // Raw argmax (before the confidence<0.55 → 'other' remap), which is what the
     // pipeline's shipped-model gate measures.
@@ -63,15 +68,21 @@ function shippedAccuracy(csvPath: string) {
   return { accuracy: total ? correct / total : 0, correct, total, misses };
 }
 
-describe('category pipeline serve fidelity (shipped TS classifier vs labeled data)', () => {
-  it('validation accuracy meets the shipped-model gate (>= 0.85)', () => {
-    const r = shippedAccuracy('ml/datasets/expense_category_validation.csv');
+describe("category pipeline serve fidelity (shipped TS classifier vs labeled data)", () => {
+  it("validation accuracy meets the shipped-model gate (>= 0.85)", () => {
+    const r = shippedAccuracy("ml/datasets/expense_category_validation.csv");
     // Surface misses in the failure message without failing on their content.
-    expect(r.accuracy, `val ${r.correct}/${r.total}; misses: ${r.misses.join('; ')}`).toBeGreaterThanOrEqual(0.85);
+    expect(
+      r.accuracy,
+      `val ${r.correct}/${r.total}; misses: ${r.misses.join("; ")}`,
+    ).toBeGreaterThanOrEqual(0.85);
   });
 
-  it('test accuracy holds at the measured on-device level (>= 0.83)', () => {
-    const r = shippedAccuracy('ml/datasets/expense_category_test.csv');
-    expect(r.accuracy, `test ${r.correct}/${r.total}; misses: ${r.misses.join('; ')}`).toBeGreaterThanOrEqual(0.83);
+  it("test accuracy holds at the measured on-device level (>= 0.83)", () => {
+    const r = shippedAccuracy("ml/datasets/expense_category_test.csv");
+    expect(
+      r.accuracy,
+      `test ${r.correct}/${r.total}; misses: ${r.misses.join("; ")}`,
+    ).toBeGreaterThanOrEqual(0.83);
   });
 });
