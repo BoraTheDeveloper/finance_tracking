@@ -1,40 +1,131 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react';
-import { Animated, TouchableOpacity, View, type StyleProp, type ViewStyle } from 'react-native';
-import { MaterialIcons } from '@expo/vector-icons';
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  Animated,
+  TouchableOpacity,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
+import { MaterialIcons } from "@expo/vector-icons";
 
-import type { Theme } from '../theme/theme';
-import { AnimatedRingBudget } from './AnimatedRingBudget';
-import { AnimatedPressable } from './AnimatedPressable';
-import { MOTION_DURATION, MOTION_EASING, shouldAnimate } from './motion';
-import { useReducedMotion } from './useReducedMotion';
-import { AppText } from './AppText';
-import { Glyph, type IconName } from './icons';
-import { styles } from './styles';
+import type { Theme } from "../theme/theme";
+import { AnimatedRingBudget } from "./AnimatedRingBudget";
+import { AnimatedPressable } from "./AnimatedPressable";
+import { MOTION_DURATION, MOTION_EASING, shouldAnimate } from "./motion";
+import { useReducedMotion } from "./useReducedMotion";
+import { AppText } from "./AppText";
+import { Glyph, type IconName } from "./icons";
+import { styles } from "./styles";
 
-export function Row({ label, value, theme, strong }: { label: string; value: string; theme: Theme; strong?: boolean }) {
-  return <View style={styles.row}><AppText style={[styles.rowLabel, { color: theme.muted }]}>{label}</AppText><AppText style={[styles.rowValue, { color: strong ? theme.primary : theme.text }]}>{value}</AppText></View>;
-}
-
-export function SectionHeader({ title, action, theme, onAction }: { title: string; action?: string; theme: Theme; onAction?: () => void }) {
-  return <View style={styles.sectionHeader}><AppText style={[styles.sectionTitle, { color: theme.muted }]}>{title}</AppText>{action ? <TouchableOpacity accessibilityRole="button" accessibilityLabel={action} onPress={onAction}><AppText style={[styles.sectionAction, { color: theme.primary }]}>{action}</AppText></TouchableOpacity> : null}</View>;
-}
-
-export function EmptyState({ icon, title, body, theme }: { icon: IconName; title: string; body: string; theme: Theme }) {
+export function Row({
+  label,
+  value,
+  theme,
+  strong,
+}: {
+  label: string;
+  value: string;
+  theme: Theme;
+  strong?: boolean;
+}) {
   return (
-    <View style={[styles.emptyState, { backgroundColor: theme.surface, borderColor: theme.line }]}>
+    <View style={styles.row}>
+      <AppText style={[styles.rowLabel, { color: theme.muted }]}>
+        {label}
+      </AppText>
+      <AppText
+        style={[
+          styles.rowValue,
+          { color: strong ? theme.primary : theme.text },
+        ]}
+      >
+        {value}
+      </AppText>
+    </View>
+  );
+}
+
+export function SectionHeader({
+  title,
+  action,
+  theme,
+  onAction,
+}: {
+  title: string;
+  action?: string;
+  theme: Theme;
+  onAction?: () => void;
+}) {
+  return (
+    <View style={styles.sectionHeader}>
+      <AppText style={[styles.sectionTitle, { color: theme.muted }]}>
+        {title}
+      </AppText>
+      {action ? (
+        <TouchableOpacity
+          accessibilityRole="button"
+          accessibilityLabel={action}
+          onPress={onAction}
+        >
+          <AppText style={[styles.sectionAction, { color: theme.primary }]}>
+            {action}
+          </AppText>
+        </TouchableOpacity>
+      ) : null}
+    </View>
+  );
+}
+
+export function EmptyState({
+  icon,
+  title,
+  body,
+  theme,
+}: {
+  icon: IconName;
+  title: string;
+  body: string;
+  theme: Theme;
+}) {
+  return (
+    <View
+      style={[
+        styles.emptyState,
+        { backgroundColor: theme.surface, borderColor: theme.line },
+      ]}
+    >
       <View style={[styles.emptyIcon, { backgroundColor: theme.primaryWash }]}>
         <MaterialIcons name={icon} size={22} color={theme.primary} />
       </View>
       <View style={{ flex: 1 }}>
-        <AppText style={[styles.itemTitle, { color: theme.text }]}>{title}</AppText>
-        <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 4 }]}>{body}</AppText>
+        <AppText style={[styles.itemTitle, { color: theme.text }]}>
+          {title}
+        </AppText>
+        <AppText style={[styles.itemSub, { color: theme.muted, marginTop: 4 }]}>
+          {body}
+        </AppText>
       </View>
     </View>
   );
 }
 
-export function Pill({ text, icon, theme }: { text: string; icon: IconName; theme: Theme }) {
-  return <View style={[styles.pill, { backgroundColor: theme.surface2 }]}><MaterialIcons name={icon} size={15} color={theme.muted} /><AppText style={[styles.pillText, { color: theme.muted }]}>{text}</AppText></View>;
+export function Pill({
+  text,
+  icon,
+  theme,
+}: {
+  text: string;
+  icon: IconName;
+  theme: Theme;
+}) {
+  return (
+    <View style={[styles.pill, { backgroundColor: theme.surface2 }]}>
+      <MaterialIcons name={icon} size={15} color={theme.muted} />
+      <AppText style={[styles.pillText, { color: theme.muted }]}>
+        {text}
+      </AppText>
+    </View>
+  );
 }
 
 export function AnimatedCue({
@@ -77,8 +168,18 @@ export function AnimatedCue({
           transform: reducedMotion
             ? []
             : [
-                { translateY: cue.interpolate({ inputRange: [0, 1], outputRange: [distance, 0] }) },
-                { scale: cue.interpolate({ inputRange: [0, 1], outputRange: [scale, 1] }) },
+                {
+                  translateY: cue.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [distance, 0],
+                  }),
+                },
+                {
+                  scale: cue.interpolate({
+                    inputRange: [0, 1],
+                    outputRange: [scale, 1],
+                  }),
+                },
               ],
         },
       ]}
@@ -126,8 +227,14 @@ export function SelectableChip({
     }).start();
   }, [reducedMotion, selected, selection]);
 
-  const fill = selection.interpolate({ inputRange: [0, 1], outputRange: [surfaceColor, selectedColor] });
-  const stroke = selection.interpolate({ inputRange: [0, 1], outputRange: [borderColor, selectedColor] });
+  const fill = selection.interpolate({
+    inputRange: [0, 1],
+    outputRange: [surfaceColor, selectedColor],
+  });
+  const stroke = selection.interpolate({
+    inputRange: [0, 1],
+    outputRange: [borderColor, selectedColor],
+  });
 
   return (
     <AnimatedPressable
@@ -138,9 +245,22 @@ export function SelectableChip({
       pressedScale={0.97}
       pressedOpacity={0.9}
     >
-      <Animated.View style={[styles.chip, { borderColor: stroke, backgroundColor: fill }]}>
-        <Glyph name={icon} size={18} color={selected ? textColor : selectedColor} />
-        <AppText style={[styles.chipText, { color: selected ? textColor : mutedColor }]}>{label}</AppText>
+      <Animated.View
+        style={[styles.chip, { borderColor: stroke, backgroundColor: fill }]}
+      >
+        <Glyph
+          name={icon}
+          size={18}
+          color={selected ? textColor : selectedColor}
+        />
+        <AppText
+          style={[
+            styles.chipText,
+            { color: selected ? textColor : mutedColor },
+          ]}
+        >
+          {label}
+        </AppText>
       </Animated.View>
     </AnimatedPressable>
   );
@@ -177,8 +297,14 @@ export function SetupDot({
       style={[
         styles.dot,
         {
-          width: selected.interpolate({ inputRange: [0, 1], outputRange: [8, 22] }),
-          backgroundColor: selected.interpolate({ inputRange: [0, 1], outputRange: [inactiveColor, activeColor] }),
+          width: selected.interpolate({
+            inputRange: [0, 1],
+            outputRange: [8, 22],
+          }),
+          backgroundColor: selected.interpolate({
+            inputRange: [0, 1],
+            outputRange: [inactiveColor, activeColor],
+          }),
         },
       ]}
     />
@@ -207,24 +333,79 @@ export function AnimatedSplitBar({
   const save = useRef(new Animated.Value(savePct)).current;
 
   useEffect(() => {
-    const duration = shouldAnimate(reducedMotion, MOTION_DURATION.number) ? MOTION_DURATION.number : 0;
+    const duration = shouldAnimate(reducedMotion, MOTION_DURATION.number)
+      ? MOTION_DURATION.number
+      : 0;
     Animated.parallel([
-      Animated.timing(needs, { toValue: needsPct, duration, easing: MOTION_EASING.decelerate, useNativeDriver: false }),
-      Animated.timing(wants, { toValue: wantsPct, duration, easing: MOTION_EASING.decelerate, useNativeDriver: false }),
-      Animated.timing(save, { toValue: savePct, duration, easing: MOTION_EASING.decelerate, useNativeDriver: false }),
+      Animated.timing(needs, {
+        toValue: needsPct,
+        duration,
+        easing: MOTION_EASING.decelerate,
+        useNativeDriver: false,
+      }),
+      Animated.timing(wants, {
+        toValue: wantsPct,
+        duration,
+        easing: MOTION_EASING.decelerate,
+        useNativeDriver: false,
+      }),
+      Animated.timing(save, {
+        toValue: savePct,
+        duration,
+        easing: MOTION_EASING.decelerate,
+        useNativeDriver: false,
+      }),
     ]).start();
   }, [needs, needsPct, reducedMotion, save, savePct, wants, wantsPct]);
 
   return (
-    <View onLayout={(event) => setWidth(event.nativeEvent.layout.width)} style={{ flexDirection: 'row', height: 14, borderRadius: 99, overflow: 'hidden' }}>
-      <Animated.View style={{ width: needs.interpolate({ inputRange: [0, 100], outputRange: [0, width] }), backgroundColor: needsColor }} />
-      <Animated.View style={{ width: wants.interpolate({ inputRange: [0, 100], outputRange: [0, width] }), backgroundColor: wantsColor }} />
-      <Animated.View style={{ width: save.interpolate({ inputRange: [0, 100], outputRange: [0, width] }), backgroundColor: saveColor }} />
+    <View
+      onLayout={(event) => setWidth(event.nativeEvent.layout.width)}
+      style={{
+        flexDirection: "row",
+        height: 14,
+        borderRadius: 99,
+        overflow: "hidden",
+      }}
+    >
+      <Animated.View
+        style={{
+          width: needs.interpolate({
+            inputRange: [0, 100],
+            outputRange: [0, width],
+          }),
+          backgroundColor: needsColor,
+        }}
+      />
+      <Animated.View
+        style={{
+          width: wants.interpolate({
+            inputRange: [0, 100],
+            outputRange: [0, width],
+          }),
+          backgroundColor: wantsColor,
+        }}
+      />
+      <Animated.View
+        style={{
+          width: save.interpolate({
+            inputRange: [0, 100],
+            outputRange: [0, width],
+          }),
+          backgroundColor: saveColor,
+        }}
+      />
     </View>
   );
 }
 
-export function ReceiptToRingCue({ trigger, theme }: { trigger: string | null; theme: Theme }) {
+export function ReceiptToRingCue({
+  trigger,
+  theme,
+}: {
+  trigger: string | null;
+  theme: Theme;
+}) {
   const reducedMotion = useReducedMotion();
   const motion = useRef(new Animated.Value(1)).current;
 
@@ -250,40 +431,165 @@ export function ReceiptToRingCue({ trigger, theme }: { trigger: string | null; t
     <Animated.View
       pointerEvents="none"
       style={{
-        position: 'absolute',
+        position: "absolute",
         right: 62,
         top: 118,
-        opacity: reducedMotion ? 0 : motion.interpolate({ inputRange: [0, 0.18, 0.78, 1], outputRange: [0, 1, 1, 0] }),
+        opacity: reducedMotion
+          ? 0
+          : motion.interpolate({
+              inputRange: [0, 0.18, 0.78, 1],
+              outputRange: [0, 1, 1, 0],
+            }),
         transform: reducedMotion
           ? []
           : [
-              { translateX: motion.interpolate({ inputRange: [0, 1], outputRange: [44, 0] }) },
-              { translateY: motion.interpolate({ inputRange: [0, 1], outputRange: [54, -28] }) },
-              { scale: motion.interpolate({ inputRange: [0, 0.25, 1], outputRange: [0.92, 1, 0.78] }) },
+              {
+                translateX: motion.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [44, 0],
+                }),
+              },
+              {
+                translateY: motion.interpolate({
+                  inputRange: [0, 1],
+                  outputRange: [54, -28],
+                }),
+              },
+              {
+                scale: motion.interpolate({
+                  inputRange: [0, 0.25, 1],
+                  outputRange: [0.92, 1, 0.78],
+                }),
+              },
             ],
       }}
     >
-      <View style={[styles.bubble, { backgroundColor: theme.primaryWash, borderWidth: 1, borderColor: theme.line }]}>
+      <View
+        style={[
+          styles.bubble,
+          {
+            backgroundColor: theme.primaryWash,
+            borderWidth: 1,
+            borderColor: theme.line,
+          },
+        ]}
+      >
         <MaterialIcons name="receipt-long" size={22} color={theme.primary} />
       </View>
     </Animated.View>
   );
 }
 
-export function Progress({ label, value, total, pct, color, theme }: { label: string; value: string; total: string; pct: number; color: string; theme: Theme }) {
-  return <View style={{ marginBottom: 14 }}><View style={styles.row}><AppText style={[styles.rowLabel, { color: theme.muted }]}>{label}</AppText><AppText style={[styles.rowValue, { color: theme.text }]}>{value} <AppText style={{ color: theme.faint }}>/ {total}</AppText></AppText></View><View style={[styles.track, { backgroundColor: theme.surface2 }]}><View style={[styles.fill, { width: `${Math.max(0, Math.min(1, pct)) * 100}%`, backgroundColor: color }]} /></View></View>;
+export function Progress({
+  label,
+  value,
+  total,
+  pct,
+  color,
+  theme,
+}: {
+  label: string;
+  value: string;
+  total: string;
+  pct: number;
+  color: string;
+  theme: Theme;
+}) {
+  return (
+    <View style={{ marginBottom: 14 }}>
+      <View style={styles.row}>
+        <AppText style={[styles.rowLabel, { color: theme.muted }]}>
+          {label}
+        </AppText>
+        <AppText style={[styles.rowValue, { color: theme.text }]}>
+          {value} <AppText style={{ color: theme.faint }}>/ {total}</AppText>
+        </AppText>
+      </View>
+      <View style={[styles.track, { backgroundColor: theme.surface2 }]}>
+        <View
+          style={[
+            styles.fill,
+            {
+              width: `${Math.max(0, Math.min(1, pct)) * 100}%`,
+              backgroundColor: color,
+            },
+          ]}
+        />
+      </View>
+    </View>
+  );
 }
 
-export function Upcoming({ icon, color, title, subtitle, amount, theme, onPress, onDone }: { icon: string; color: string; title: string; subtitle: string; amount: string; theme: Theme; onPress?: () => void; onDone: () => void }) {
-  return <TouchableOpacity accessibilityRole={onPress ? 'button' : undefined} accessibilityLabel={`${title}, ${subtitle}, ${amount}`} activeOpacity={0.6} onPress={onPress} style={[styles.expenseRow, { borderColor: theme.line }]}><View style={[styles.bubble, { backgroundColor: `${color}22` }]}><Glyph name={icon} color={color} /></View><View style={{ flex: 1 }}><AppText style={[styles.itemName, { color: theme.text }]}>{title}</AppText><AppText style={[styles.itemSub, { color: theme.muted }]}>{subtitle}</AppText></View><AppText style={[styles.amount, { color: theme.text }]}>{amount}</AppText><TouchableOpacity accessibilityRole="button" accessibilityLabel={`Mark ${title} paid`} onPress={onDone} style={{ padding: 5, marginLeft: 4 }}><MaterialIcons name="done" size={20} color={theme.green} /></TouchableOpacity></TouchableOpacity>;
+export function Upcoming({
+  icon,
+  color,
+  title,
+  subtitle,
+  amount,
+  theme,
+  onPress,
+  onDone,
+}: {
+  icon: string;
+  color: string;
+  title: string;
+  subtitle: string;
+  amount: string;
+  theme: Theme;
+  onPress?: () => void;
+  onDone: () => void;
+}) {
+  return (
+    <TouchableOpacity
+      accessibilityRole={onPress ? "button" : undefined}
+      accessibilityLabel={`${title}, ${subtitle}, ${amount}`}
+      activeOpacity={0.6}
+      onPress={onPress}
+      style={[styles.expenseRow, { borderColor: theme.line }]}
+    >
+      <View style={[styles.bubble, { backgroundColor: `${color}22` }]}>
+        <Glyph name={icon} color={color} />
+      </View>
+      <View style={{ flex: 1 }}>
+        <AppText style={[styles.itemName, { color: theme.text }]}>
+          {title}
+        </AppText>
+        <AppText style={[styles.itemSub, { color: theme.muted }]}>
+          {subtitle}
+        </AppText>
+      </View>
+      <AppText style={[styles.amount, { color: theme.text }]}>{amount}</AppText>
+      <TouchableOpacity
+        accessibilityRole="button"
+        accessibilityLabel={`Mark ${title} paid`}
+        onPress={onDone}
+        style={{ padding: 5, marginLeft: 4 }}
+      >
+        <MaterialIcons name="done" size={20} color={theme.green} />
+      </TouchableOpacity>
+    </TouchableOpacity>
+  );
 }
 
 export function Stat({ label, value }: { label: string; value: string }) {
-  return <View style={styles.statBox}><AppText style={styles.statValue}>{value}</AppText><AppText style={styles.statLabel}>{label}</AppText></View>;
+  return (
+    <View style={styles.statBox}>
+      <AppText style={styles.statValue}>{value}</AppText>
+      <AppText style={styles.statLabel}>{label}</AppText>
+    </View>
+  );
 }
 
 export { AnimatedRingBudget };
 
-export function RingBudget({ pct, color, bg }: { pct: number; color: string; bg: string }) {
+export function RingBudget({
+  pct,
+  color,
+  bg,
+}: {
+  pct: number;
+  color: string;
+  bg: string;
+}) {
   return <AnimatedRingBudget pct={pct} color={color} bg={bg} />;
 }
