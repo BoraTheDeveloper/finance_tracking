@@ -1,9 +1,33 @@
-export type Currency = 'USD' | 'KHR';
-export type Language = 'en' | 'km';
-export type Screen = 'home' | 'add' | 'categories' | 'detail' | 'goals' | 'insights' | 'settings' | 'onboarding';
-export type BudgetMode = 'balanced' | 'saver' | 'custom';
-export type TransactionKind = 'expense' | 'income';
-export type Sheet = 'income' | 'fixed' | 'loan' | 'method' | 'cycle' | 'currency' | 'reminder' | 'category' | 'entry' | 'iou' | 'goal' | 'recurring' | 'day' | 'month' | 'formula' | null;
+export type Currency = "USD" | "KHR";
+export type Language = "en" | "km";
+export type Screen =
+  | "home"
+  | "add"
+  | "categories"
+  | "detail"
+  | "goals"
+  | "insights"
+  | "settings"
+  | "onboarding";
+export type BudgetMode = "balanced" | "saver" | "custom";
+export type TransactionKind = "expense" | "income";
+export type Sheet =
+  | "income"
+  | "fixed"
+  | "loan"
+  | "method"
+  | "cycle"
+  | "currency"
+  | "reminder"
+  | "category"
+  | "entry"
+  | "iou"
+  | "goal"
+  | "recurring"
+  | "day"
+  | "month"
+  | "formula"
+  | null;
 
 export type Category = {
   key: string;
@@ -14,7 +38,8 @@ export type Category = {
   budgetUsd: number;
 };
 
-export type ExpensePredictionSource = 'correction' | 'keyword' | 'classifier' | 'fallback';
+export type ExpensePredictionSource =
+  "correction" | "keyword" | "classifier" | "fallback";
 
 export type ExpensePrediction = {
   cleanLabel: string;
@@ -47,13 +72,12 @@ export type CategoryTrainingExample = {
   confidence?: number;
   corrected: boolean;
   createdAtDay: string;
-  sourceType?: 'free_text' | 'aba_statement';
-  kindHint?: 'purchase' | 'transfer_in' | 'transfer_out' | 'other';
-  localeHint?: 'en' | 'km-Latn' | 'mixed';
+  sourceType?: "free_text" | "aba_statement";
+  kindHint?: "purchase" | "transfer_in" | "transfer_out" | "other";
+  localeHint?: "en" | "km-Latn" | "mixed";
 };
 
 export type FastEntryMemory = Record<string, { cat: string; lastUsed: string }>;
-
 
 export type Goal = {
   id: string;
@@ -132,7 +156,7 @@ export type Drafts = {
   expenseDate: string;
   selectedDay: number;
   transactionSearch: string;
-  transactionTypeFilter: TransactionKind | 'all';
+  transactionTypeFilter: TransactionKind | "all";
   transactionCategoryFilter: string;
   transactionMonth: string;
   categoryName: string;
