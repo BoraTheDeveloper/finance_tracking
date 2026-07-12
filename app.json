@@ -28,9 +28,7 @@
     "web": {
       "favicon": "./assets/luy-khnom-favicon-flat.png"
     },
-    "plugins": [
-      "expo-sqlite"
-    ],
+    "plugins": ["expo-sqlite"],
     "extra": {
       "eas": {
         "projectId": "23fe86ec-5c1a-464b-bfdd-47e704388dcd"

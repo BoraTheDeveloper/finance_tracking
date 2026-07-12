@@ -42,8 +42,6 @@ yarn-error.*
 
 .omx/
 
-design_handoff_sabai_finance/
-
 # python
 __pycache__/
 *.pyc

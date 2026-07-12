@@ -77,6 +77,7 @@ import {
   isIsoDayInBudgetCycle,
   isoDayFromDate,
   isoMonthFromDay,
+  spentUsdForDay,
 } from "./src/domain/dates";
 import { categoryFor } from "./src/domain/categories";
 import {
@@ -437,9 +438,16 @@ function AppContent() {
     date: addIsoDays(today, index - (chartHistoryValues.length - 1)),
     value,
   }));
-  const cycleHistoryItems = chartHistoryItems.filter(
-    (item) => item.date >= budgetCycle.start && item.date <= today,
-  );
+  const cycleHistoryItems = chartHistoryItems
+    .filter((item) => item.date >= budgetCycle.start && item.date <= today)
+    .map((item) => ({
+      date: item.date,
+      // Recompute each in-cycle day from the live expense list. model.history
+      // is a frozen snapshot written once at day rollover, so it misses
+      // transactions added to a past day afterwards (e.g. ABA statement
+      // imports), which otherwise leaves the day-view total and heatmap at $0.
+      value: spentUsdForDay(model.expenses, item.date, model.rate),
+    }));
   const chartHistory = cycleHistoryItems.map((item) => item.value);
   const heatmap = buildHeatmap(
     chartHistory,
