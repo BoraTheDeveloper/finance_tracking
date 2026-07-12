@@ -1,7 +1,7 @@
-import * as XLSX from 'xlsx';
+import * as XLSX from "xlsx";
 
-import type { Currency, Expense, TransactionKind } from '../app/types';
-import { collapseWhitespace } from './expenseLabel';
+import type { Currency, Expense, TransactionKind } from "../app/types";
+import { collapseWhitespace } from "./expenseLabel";
 
 export type AbaStatementTransaction = Readonly<{
   id: string;
@@ -46,30 +46,30 @@ type HeaderMap = Readonly<{
 const BALANCE_TOLERANCE = 0.02;
 
 const MONTHS: Record<string, string> = {
-  jan: '01',
-  feb: '02',
-  mar: '03',
-  apr: '04',
-  may: '05',
-  jun: '06',
-  jul: '07',
-  aug: '08',
-  sep: '09',
-  oct: '10',
-  nov: '11',
-  dec: '12',
+  jan: "01",
+  feb: "02",
+  mar: "03",
+  apr: "04",
+  may: "05",
+  jun: "06",
+  jul: "07",
+  aug: "08",
+  sep: "09",
+  oct: "10",
+  nov: "11",
+  dec: "12",
 };
 
 function cellText(value: unknown) {
-  return value === null || value === undefined ? '' : String(value).trim();
+  return value === null || value === undefined ? "" : String(value).trim();
 }
 
 function normalizeHeader(value: unknown) {
-  return cellText(value).toLowerCase().replace(/\s+/g, ' ');
+  return cellText(value).toLowerCase().replace(/\s+/g, " ");
 }
 
 function toAmount(value: unknown) {
-  const normalized = cellText(value).replace(/,/g, '');
+  const normalized = cellText(value).replace(/,/g, "");
   if (!normalized) return null;
   const amount = Number(normalized);
   return Number.isFinite(amount) && amount > 0 ? amount : null;
@@ -77,7 +77,7 @@ function toAmount(value: unknown) {
 
 /** Parse a running balance, where 0.00 (and negatives) are legitimate values, not "missing". */
 function toBalance(value: unknown) {
-  const normalized = cellText(value).replace(/,/g, '');
+  const normalized = cellText(value).replace(/,/g, "");
   if (!normalized) return null;
   const amount = Number(normalized);
   return Number.isFinite(amount) ? amount : null;
@@ -85,7 +85,7 @@ function toBalance(value: unknown) {
 
 function toCurrency(value: unknown): Currency | null {
   const normalized = cellText(value).toUpperCase();
-  return normalized === 'USD' || normalized === 'KHR' ? normalized : null;
+  return normalized === "USD" || normalized === "KHR" ? normalized : null;
 }
 
 export function parseAbaStatementDate(value: unknown) {
@@ -96,20 +96,20 @@ export function parseAbaStatementDate(value: unknown) {
   if (!month) return null;
   const day = Number(match[2]);
   if (!Number.isInteger(day) || day < 1 || day > 31) return null;
-  return `${match[3]}-${month}-${String(day).padStart(2, '0')}`;
+  return `${match[3]}-${month}-${String(day).padStart(2, "0")}`;
 }
 
 function findHeader(rows: readonly Row[]): HeaderMap | null {
   for (const row of rows) {
     const headers = row.map(normalizeHeader);
-    const date = headers.indexOf('date');
-    const details = headers.indexOf('transaction details');
-    const moneyIn = headers.indexOf('money in');
-    const moneyOut = headers.indexOf('money out');
+    const date = headers.indexOf("date");
+    const details = headers.indexOf("transaction details");
+    const moneyIn = headers.indexOf("money in");
+    const moneyOut = headers.indexOf("money out");
     if (date < 0 || details < 0 || moneyIn < 0 || moneyOut < 0) continue;
 
-    const balance = headers.indexOf('balance');
-    const sourceFile = headers.indexOf('source file');
+    const balance = headers.indexOf("balance");
+    const sourceFile = headers.indexOf("source file");
 
     return {
       date,
@@ -136,30 +136,47 @@ function extractName(details: string, kind: TransactionKind) {
   const purchase = /^PURCHASE AT\s+(.+?)\s+ON\s+/i.exec(normalized);
   if (purchase) return purchase[1].trim();
 
-  const received = /^FUNDS RECEIVED FROM\s+(.+?)(?:\s+\(|\s+ORIGINAL AMOUNT\b|\s+REF#)/i.exec(normalized);
+  const received =
+    /^FUNDS RECEIVED FROM\s+(.+?)(?:\s+\(|\s+ORIGINAL AMOUNT\b|\s+REF#)/i.exec(
+      normalized,
+    );
   if (received) return `From ${received[1].trim()}`;
 
-  const transferred = /^FUNDS TRANSFERRED TO\s+(.+?)(?:\s+\d{6,}\b|\s+ORIGINAL AMOUNT\b|\s+REF#)/i.exec(normalized);
+  const transferred =
+    /^FUNDS TRANSFERRED TO\s+(.+?)(?:\s+\d{6,}\b|\s+ORIGINAL AMOUNT\b|\s+REF#)/i.exec(
+      normalized,
+    );
   if (transferred) return `To ${transferred[1].trim()}`;
 
-  return kind === 'income' ? 'ABA income' : 'ABA transaction';
+  return kind === "income" ? "ABA income" : "ABA transaction";
 }
 
 function buildNote(details: string, ref: string | null) {
-  const original = /\bORIGINAL AMOUNT\s+([0-9,.]+\s+(?:USD|KHR))/i.exec(details)?.[1] ?? null;
-  const parts = ['ABA import'];
+  const original =
+    /\bORIGINAL AMOUNT\s+([0-9,.]+\s+(?:USD|KHR))/i.exec(details)?.[1] ?? null;
+  const parts = ["ABA import"];
   if (ref) parts.push(`REF# ${ref}`);
-  if (original) parts.push(`Original ${original.replace(/\s+/g, ' ')}`);
-  return parts.join(' · ');
+  if (original) parts.push(`Original ${original.replace(/\s+/g, " ")}`);
+  return parts.join(" · ");
 }
 
-function transactionId(date: string, kind: TransactionKind, ref: string | null, rowNumber: number) {
-  return `aba-${date}-${kind}-${ref ?? `row-${rowNumber}`}`.replace(/[^a-zA-Z0-9_-]+/g, '-');
+function transactionId(
+  date: string,
+  kind: TransactionKind,
+  ref: string | null,
+  rowNumber: number,
+) {
+  return `aba-${date}-${kind}-${ref ?? `row-${rowNumber}`}`.replace(
+    /[^a-zA-Z0-9_-]+/g,
+    "-",
+  );
 }
 
-export function parseAbaStatementRows(rows: readonly Row[]): AbaStatementParseResult {
+export function parseAbaStatementRows(
+  rows: readonly Row[],
+): AbaStatementParseResult {
   const header = findHeader(rows);
-  if (!header) throw new Error('ABA statement header was not found');
+  if (!header) throw new Error("ABA statement header was not found");
 
   const transactions: AbaStatementTransaction[] = [];
   const warnings: AbaBalanceWarning[] = [];
@@ -178,9 +195,15 @@ export function parseAbaStatementRows(rows: readonly Row[]): AbaStatementParseRe
 
     const moneyIn = toAmount(row[header.moneyIn]);
     const moneyOut = toAmount(row[header.moneyOut]);
-    const kind: TransactionKind | null = moneyIn ? 'income' : moneyOut ? 'expense' : null;
+    const kind: TransactionKind | null = moneyIn
+      ? "income"
+      : moneyOut
+        ? "expense"
+        : null;
     const amount = moneyIn ?? moneyOut;
-    const cur = toCurrency(moneyIn ? row[header.moneyInCcy] : row[header.moneyOutCcy]);
+    const cur = toCurrency(
+      moneyIn ? row[header.moneyInCcy] : row[header.moneyOutCcy],
+    );
     if (!kind || !amount || !cur) {
       skippedRows += 1;
       continue;
@@ -188,7 +211,8 @@ export function parseAbaStatementRows(rows: readonly Row[]): AbaStatementParseRe
 
     // A combined multi-statement CSV carries one running balance per source file;
     // reset continuity tracking at each file boundary so we don't compare across them.
-    const sourceFile = header.sourceFile !== null ? cellText(row[header.sourceFile]) : null;
+    const sourceFile =
+      header.sourceFile !== null ? cellText(row[header.sourceFile]) : null;
     if (sourceFile !== null && sourceFile !== prevSourceFile) {
       prevBalance = null;
       prevSourceFile = sourceFile;
@@ -230,7 +254,6 @@ export function parseAbaStatementRows(rows: readonly Row[]): AbaStatementParseRe
   return { transactions, skippedRows, warnings };
 }
 
-
 /**
  * RFC-4180-style CSV parser: a quoted field may span embedded newlines and
  * contain escaped double-quotes (""), so we scan the whole text rather than
@@ -239,12 +262,12 @@ export function parseAbaStatementRows(rows: readonly Row[]): AbaStatementParseRe
 function parseCsvText(text: string): Row[] {
   const rows: string[][] = [];
   let row: string[] = [];
-  let field = '';
+  let field = "";
   let inQuotes = false;
 
   const pushField = () => {
     row.push(field.trim());
-    field = '';
+    field = "";
   };
   const pushRow = () => {
     pushField();
@@ -269,11 +292,11 @@ function parseCsvText(text: string): Row[] {
     }
     if (char === '"') {
       inQuotes = true;
-    } else if (char === ',') {
+    } else if (char === ",") {
       pushField();
-    } else if (char === '\n') {
+    } else if (char === "\n") {
       pushRow();
-    } else if (char !== '\r') {
+    } else if (char !== "\r") {
       field += char;
     }
   }
@@ -282,18 +305,22 @@ function parseCsvText(text: string): Row[] {
 }
 function firstSheetRows(workbook: XLSX.WorkBook): Row[] {
   const firstSheetName = workbook.SheetNames[0];
-  if (!firstSheetName) throw new Error('ABA statement has no sheets');
+  if (!firstSheetName) throw new Error("ABA statement has no sheets");
   const sheet = workbook.Sheets[firstSheetName];
-  return XLSX.utils.sheet_to_json<Row>(sheet, { header: 1, blankrows: false, raw: false });
+  return XLSX.utils.sheet_to_json<Row>(sheet, {
+    header: 1,
+    blankrows: false,
+    raw: false,
+  });
 }
 
 export function parseAbaStatementWorkbookBase64(base64: string) {
-  const workbook = XLSX.read(base64, { type: 'base64' });
+  const workbook = XLSX.read(base64, { type: "base64" });
   return parseAbaStatementRows(firstSheetRows(workbook));
 }
 
 export function parseAbaStatementText(text: string) {
-  const workbook = XLSX.read(text, { type: 'string' });
+  const workbook = XLSX.read(text, { type: "string" });
   return parseAbaStatementRows(firstSheetRows(workbook));
 }
 
@@ -305,7 +332,7 @@ export function parseAbaStatementCsvText(text: string) {
 export function toExpenseFromAbaTransaction(
   transaction: AbaStatementTransaction,
   cat: string,
-  prediction?: Expense['prediction'],
+  prediction?: Expense["prediction"],
 ): Expense {
   return {
     id: transaction.id,
@@ -313,7 +340,7 @@ export function toExpenseFromAbaTransaction(
     cat,
     amount: transaction.amount,
     cur: transaction.cur,
-    time: 'imported',
+    time: "imported",
     date: transaction.date,
     kind: transaction.kind,
     note: transaction.note,
@@ -326,31 +353,41 @@ function postedAmountKey(amount: number) {
   return Math.round(amount * 100);
 }
 
-export function isDuplicateAbaTransaction(existing: readonly Expense[], transaction: AbaStatementTransaction) {
+export function isDuplicateAbaTransaction(
+  existing: readonly Expense[],
+  transaction: AbaStatementTransaction,
+) {
   return existing.some((expense) => {
     // A REF# is only unique per direction: a transfer's outgoing (expense) and
     // incoming (income) legs share the same REF#, so the kind must also match.
     if (transaction.ref && expense.note?.includes(`REF# ${transaction.ref}`)) {
-      return (expense.kind ?? 'expense') === transaction.kind;
+      return (expense.kind ?? "expense") === transaction.kind;
     }
     // Fallback for ref-less rows: date + amount + currency + kind alone can
     // collide across genuinely different same-day purchases, so require the
     // merchant name to match too.
-    return expense.date === transaction.date
-      && postedAmountKey(expense.amount) === postedAmountKey(transaction.amount)
-      && expense.cur === transaction.cur
-      && (expense.kind ?? 'expense') === transaction.kind
-      && expense.name === transaction.name;
+    return (
+      expense.date === transaction.date &&
+      postedAmountKey(expense.amount) === postedAmountKey(transaction.amount) &&
+      expense.cur === transaction.cur &&
+      (expense.kind ?? "expense") === transaction.kind &&
+      expense.name === transaction.name
+    );
   });
 }
 
-function isSameAbaTransaction(a: AbaStatementTransaction, b: AbaStatementTransaction) {
+function isSameAbaTransaction(
+  a: AbaStatementTransaction,
+  b: AbaStatementTransaction,
+) {
   if (a.ref && b.ref) return a.ref === b.ref && a.kind === b.kind;
-  return a.date === b.date
-    && postedAmountKey(a.amount) === postedAmountKey(b.amount)
-    && a.cur === b.cur
-    && a.kind === b.kind
-    && a.name === b.name;
+  return (
+    a.date === b.date &&
+    postedAmountKey(a.amount) === postedAmountKey(b.amount) &&
+    a.cur === b.cur &&
+    a.kind === b.kind &&
+    a.name === b.name
+  );
 }
 
 /**
@@ -364,7 +401,8 @@ export function dedupeAbaTransactions(
   const accepted: AbaStatementTransaction[] = [];
   for (const transaction of transactions) {
     if (isDuplicateAbaTransaction(existing, transaction)) continue;
-    if (accepted.some((prior) => isSameAbaTransaction(prior, transaction))) continue;
+    if (accepted.some((prior) => isSameAbaTransaction(prior, transaction)))
+      continue;
     accepted.push(transaction);
   }
   return accepted;

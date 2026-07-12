@@ -1,15 +1,21 @@
-import type { AppModel, Currency, ExpensePrediction, ExpensePredictionSource, TransactionKind } from '../app/types';
-import type { Money } from './money';
-import { rememberedFastEntryCategory } from '../app/fastEntryMemory';
-import { inferCategory } from './expenseParser';
-import { categoryFromCorrections } from './categoryLearning';
-import { cleanAbaDescription, cleanFreeTextLabel } from './expenseLabel';
+import type {
+  AppModel,
+  Currency,
+  ExpensePrediction,
+  ExpensePredictionSource,
+  TransactionKind,
+} from "../app/types";
+import type { Money } from "./money";
+import { rememberedFastEntryCategory } from "../app/fastEntryMemory";
+import { inferCategory } from "./expenseParser";
+import { categoryFromCorrections } from "./categoryLearning";
+import { cleanAbaDescription, cleanFreeTextLabel } from "./expenseLabel";
 import {
   predictCategory,
   type CategoryClassifierInput,
   type CategoryKindHint,
   type CategoryPredictionSource,
-} from './categoryClassifier';
+} from "./categoryClassifier";
 
 export type CategorySuggestionInput = Readonly<{
   rawText: string;
@@ -18,8 +24,8 @@ export type CategorySuggestionInput = Readonly<{
   amount: number;
   kind: TransactionKind;
   kindHint?: CategoryKindHint;
-  direction?: 'in' | 'out';
-  sourceType?: 'free_text' | 'aba_statement';
+  direction?: "in" | "out";
+  sourceType?: "free_text" | "aba_statement";
 }>;
 
 export type CategorySuggestion = Readonly<{
@@ -30,15 +36,19 @@ export type CategorySuggestion = Readonly<{
   prediction: ExpensePrediction;
 }>;
 
-function mapClassifierSource(source: CategoryPredictionSource): ExpensePredictionSource {
-  if (source === 'keyword') return 'keyword';
-  if (source === 'classifier') return 'classifier';
-  return 'fallback';
+function mapClassifierSource(
+  source: CategoryPredictionSource,
+): ExpensePredictionSource {
+  if (source === "keyword") return "keyword";
+  if (source === "classifier") return "classifier";
+  return "fallback";
 }
 
-export function buildClassifierInput(input: CategorySuggestionInput): CategoryClassifierInput {
+export function buildClassifierInput(
+  input: CategorySuggestionInput,
+): CategoryClassifierInput {
   const cleanLabel =
-    input.sourceType === 'aba_statement'
+    input.sourceType === "aba_statement"
       ? cleanAbaDescription(input.rawText)
       : cleanFreeTextLabel(input.label || input.rawText);
 
@@ -46,40 +56,46 @@ export function buildClassifierInput(input: CategorySuggestionInput): CategoryCl
     cleanLabel,
     currency: input.currency,
     amount: input.amount,
-    direction: input.direction ?? (input.kind === 'income' ? 'in' : 'out'),
-    kindHint: input.kindHint ?? '',
+    direction: input.direction ?? (input.kind === "income" ? "in" : "out"),
+    kindHint: input.kindHint ?? "",
   };
 }
 
-export function suggestCategory(model: AppModel, input: CategorySuggestionInput): CategorySuggestion {
-  if (input.kind === 'income') {
+export function suggestCategory(
+  model: AppModel,
+  input: CategorySuggestionInput,
+): CategorySuggestion {
+  if (input.kind === "income") {
     const cleanLabel = cleanFreeTextLabel(input.label || input.rawText);
     return {
-      categoryKey: 'income',
+      categoryKey: "income",
       cleanLabel,
       confidence: 1,
-      source: 'fallback',
+      source: "fallback",
       prediction: {
         cleanLabel,
-        predictedCategoryKey: 'income',
-        predictionSource: 'fallback',
+        predictedCategoryKey: "income",
+        predictionSource: "fallback",
         confidence: 1,
       },
     };
   }
 
   const classifierInput = buildClassifierInput(input);
-  const correction = categoryFromCorrections(model.merchantCorrections, classifierInput.cleanLabel);
+  const correction = categoryFromCorrections(
+    model.merchantCorrections,
+    classifierInput.cleanLabel,
+  );
   if (correction) {
     return {
       categoryKey: correction,
       cleanLabel: classifierInput.cleanLabel,
       confidence: 1,
-      source: 'correction',
+      source: "correction",
       prediction: {
         cleanLabel: classifierInput.cleanLabel,
         predictedCategoryKey: correction,
-        predictionSource: 'correction',
+        predictionSource: "correction",
         confidence: 1,
       },
     };
@@ -98,11 +114,11 @@ export function suggestCategory(model: AppModel, input: CategorySuggestionInput)
       categoryKey: fastEntry,
       cleanLabel: classifierInput.cleanLabel,
       confidence: 0.9,
-      source: 'keyword',
+      source: "keyword",
       prediction: {
         cleanLabel: classifierInput.cleanLabel,
         predictedCategoryKey: fastEntry,
-        predictionSource: 'keyword',
+        predictionSource: "keyword",
         confidence: 0.9,
       },
     };
@@ -111,13 +127,13 @@ export function suggestCategory(model: AppModel, input: CategorySuggestionInput)
   const classifier = predictCategory(classifierInput);
   const keywordFallback = inferCategory(input.rawText.toLowerCase());
   const categoryKey =
-    classifier.source === 'fallback' && keywordFallback !== 'other'
+    classifier.source === "fallback" && keywordFallback !== "other"
       ? keywordFallback
       : classifier.categoryKey;
 
   const source =
-    classifier.source === 'fallback' && keywordFallback !== 'other'
-      ? 'keyword'
+    classifier.source === "fallback" && keywordFallback !== "other"
+      ? "keyword"
       : mapClassifierSource(classifier.source);
 
   return {
@@ -137,13 +153,18 @@ export function suggestCategory(model: AppModel, input: CategorySuggestionInput)
 export function suggestCategoryForAddText(
   model: AppModel,
   rawText: string,
-  parsed: { label: string; currency: Currency; amount: Money | null; categoryKey: string },
+  parsed: {
+    label: string;
+    currency: Currency;
+    amount: Money | null;
+    categoryKey: string;
+  },
   kind: TransactionKind,
 ) {
   const amount =
     parsed.amount == null
       ? 0
-      : parsed.currency === 'USD'
+      : parsed.currency === "USD"
         ? parsed.amount.amountMinor / 100
         : parsed.amount.amountMinor;
 
@@ -153,7 +174,7 @@ export function suggestCategoryForAddText(
     currency: parsed.currency,
     amount,
     kind,
-    sourceType: 'free_text',
+    sourceType: "free_text",
   });
 }
 
@@ -172,8 +193,8 @@ export function suggestCategoryForAba(
     currency: transaction.cur,
     amount: transaction.amount,
     kind: transaction.kind,
-    kindHint: transaction.kind === 'income' ? 'transfer_in' : 'purchase',
-    direction: transaction.kind === 'income' ? 'in' : 'out',
-    sourceType: 'aba_statement',
+    kindHint: transaction.kind === "income" ? "transfer_in" : "purchase",
+    direction: transaction.kind === "income" ? "in" : "out",
+    sourceType: "aba_statement",
   });
 }

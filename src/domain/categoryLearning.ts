@@ -3,15 +3,15 @@ import type {
   CategoryTrainingExample,
   Expense,
   ExpensePrediction,
-} from '../app/types';
-import { correctionKeyFromCleanLabel } from './expenseLabel';
-import { WEIGHTS } from './categoryClassifierWeights';
+} from "../app/types";
+import { correctionKeyFromCleanLabel } from "./expenseLabel";
+import { WEIGHTS } from "./categoryClassifierWeights";
 
 export const MAX_CATEGORY_TRAINING_EXAMPLES = 1000;
 
 export function emptyCategoryLearningState(): Pick<
   AppModel,
-  'merchantCorrections' | 'categoryTrainingExamples' | 'categoryModelVersion'
+  "merchantCorrections" | "categoryTrainingExamples" | "categoryModelVersion"
 > {
   return {
     merchantCorrections: {},
@@ -35,7 +35,7 @@ function nextTrainingExampleId() {
 }
 
 export function rememberMerchantCorrection(
-  corrections: AppModel['merchantCorrections'],
+  corrections: AppModel["merchantCorrections"],
   cleanLabel: string,
   categoryKey: string,
 ) {
@@ -45,7 +45,7 @@ export function rememberMerchantCorrection(
 }
 
 export function categoryFromCorrections(
-  corrections: AppModel['merchantCorrections'],
+  corrections: AppModel["merchantCorrections"],
   cleanLabel: string,
 ) {
   const key = correctionKeyFromCleanLabel(cleanLabel);
@@ -75,9 +75,9 @@ export function buildTrainingExample(input: {
   createdAtDay: string;
   corrected: boolean;
   prediction?: ExpensePrediction;
-  sourceType?: CategoryTrainingExample['sourceType'];
-  kindHint?: CategoryTrainingExample['kindHint'];
-  localeHint?: CategoryTrainingExample['localeHint'];
+  sourceType?: CategoryTrainingExample["sourceType"];
+  kindHint?: CategoryTrainingExample["kindHint"];
+  localeHint?: CategoryTrainingExample["localeHint"];
 }): CategoryTrainingExample {
   return {
     id: input.id,
@@ -101,11 +101,13 @@ type ExpenseSaveLearningInput = {
   categoryKey: string;
   createdAtDay: string;
   prediction?: ExpensePrediction;
-  sourceType?: CategoryTrainingExample['sourceType'];
-  kindHint?: CategoryTrainingExample['kindHint'];
+  sourceType?: CategoryTrainingExample["sourceType"];
+  kindHint?: CategoryTrainingExample["kindHint"];
 };
 
-function buildExpenseSaveExample(input: ExpenseSaveLearningInput): CategoryTrainingExample {
+function buildExpenseSaveExample(
+  input: ExpenseSaveLearningInput,
+): CategoryTrainingExample {
   return buildTrainingExample({
     id: nextTrainingExampleId(),
     rawText: input.rawText,
@@ -119,7 +121,10 @@ function buildExpenseSaveExample(input: ExpenseSaveLearningInput): CategoryTrain
   });
 }
 
-export function applyLearningOnExpenseSave(model: AppModel, input: ExpenseSaveLearningInput): AppModel {
+export function applyLearningOnExpenseSave(
+  model: AppModel,
+  input: ExpenseSaveLearningInput,
+): AppModel {
   return {
     ...model,
     categoryTrainingExamples: appendTrainingExample(
@@ -173,7 +178,8 @@ export function applyLearningOnCategoryEdit(
     corrected: true,
     // 'imported' is the structural marker set by ABA import (toExpenseFromAbaTransaction),
     // more reliable than matching an English substring in the note.
-    sourceType: input.expense.time === 'imported' ? 'aba_statement' : 'free_text',
+    sourceType:
+      input.expense.time === "imported" ? "aba_statement" : "free_text",
     prediction,
   });
 
@@ -184,7 +190,10 @@ export function applyLearningOnCategoryEdit(
       input.cleanLabel,
       input.nextCategoryKey,
     ),
-    categoryTrainingExamples: appendTrainingExample(model.categoryTrainingExamples, example),
+    categoryTrainingExamples: appendTrainingExample(
+      model.categoryTrainingExamples,
+      example,
+    ),
     categoryModelVersion: model.categoryModelVersion ?? WEIGHTS.version,
   };
 }

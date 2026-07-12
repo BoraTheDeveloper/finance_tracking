@@ -1,4 +1,4 @@
-import { Currency } from './money';
+import { Currency } from "./money";
 
 export type IsoDayString = `${number}-${number}-${number}`;
 export type IsoMonthString = `${number}-${number}`;
@@ -8,11 +8,13 @@ export const MAX_HISTORY_DAYS = 35;
 const ISO_DAY_RE = /^(\d{4})-(\d{2})-(\d{2})$/;
 const ISO_MONTH_RE = /^(\d{4})-(\d{2})$/;
 
-export type DatedExpense = Readonly<{
-  date?: string | null;
-  amount: number;
-  cur: Currency;
-} & Record<string, unknown>>;
+export type DatedExpense = Readonly<
+  {
+    date?: string | null;
+    amount: number;
+    cur: Currency;
+  } & Record<string, unknown>
+>;
 
 export type MonthlyResetCategory = {
   spentUsd: number;
@@ -51,11 +53,10 @@ export type BudgetCycle = Readonly<{
   daysLeftIncludingToday: number;
 }>;
 
-
 type DayParts = Readonly<{ year: number; month: number; day: number }>;
 
 function pad2(value: number) {
-  return String(value).padStart(2, '0');
+  return String(value).padStart(2, "0");
 }
 
 function parseIsoDay(value: string): DayParts | null {
@@ -70,7 +71,7 @@ function parseIsoDay(value: string): DayParts | null {
   return { year, month, day };
 }
 
-function parseIsoMonth(value: string): Omit<DayParts, 'day'> | null {
+function parseIsoMonth(value: string): Omit<DayParts, "day"> | null {
   const match = ISO_MONTH_RE.exec(value);
   if (!match) return null;
 
@@ -92,23 +93,26 @@ export function isIsoMonth(value: string): value is IsoMonthString {
   return parseIsoMonth(value) != null;
 }
 
-export function assertIsoDay(value: string, label = 'ISO day'): IsoDayString {
+export function assertIsoDay(value: string, label = "ISO day"): IsoDayString {
   if (!isIsoDay(value)) throw new Error(`${label} must be YYYY-MM-DD`);
   return value;
 }
 
-export function assertIsoMonth(value: string, label = 'ISO month'): IsoMonthString {
+export function assertIsoMonth(
+  value: string,
+  label = "ISO month",
+): IsoMonthString {
   if (!isIsoMonth(value)) throw new Error(`${label} must be YYYY-MM`);
   return value;
 }
 
 export function isoDayFromDate(date: Date): IsoDayString {
-  if (!Number.isFinite(date.getTime())) throw new Error('date must be valid');
+  if (!Number.isFinite(date.getTime())) throw new Error("date must be valid");
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}-${pad2(date.getDate())}` as IsoDayString;
 }
 
 export function isoMonthFromDate(date: Date): IsoMonthString {
-  if (!Number.isFinite(date.getTime())) throw new Error('date must be valid');
+  if (!Number.isFinite(date.getTime())) throw new Error("date must be valid");
   return `${date.getFullYear()}-${pad2(date.getMonth() + 1)}` as IsoMonthString;
 }
 
@@ -123,16 +127,31 @@ export function daysInIsoMonth(month: string): number {
 }
 
 export function normalizeBudgetCycleStartDay(value: unknown): number {
-  return typeof value === 'number' && Number.isInteger(value) && value >= 1 && value <= 31 ? value : 1;
+  return typeof value === "number" &&
+    Number.isInteger(value) &&
+    value >= 1 &&
+    value <= 31
+    ? value
+    : 1;
 }
 
-function shiftMonthParts(year: number, month: number, delta: number): Omit<DayParts, 'day'> {
+function shiftMonthParts(
+  year: number,
+  month: number,
+  delta: number,
+): Omit<DayParts, "day"> {
   const shifted = new Date(year, month - 1 + delta, 1);
   return { year: shifted.getFullYear(), month: shifted.getMonth() + 1 };
 }
 
-function budgetCycleStartInMonth(year: number, month: number, startDay: number): IsoDayString {
-  return isoDayFromDate(new Date(year, month - 1, Math.min(startDay, daysInMonth(year, month))));
+function budgetCycleStartInMonth(
+  year: number,
+  month: number,
+  startDay: number,
+): IsoDayString {
+  return isoDayFromDate(
+    new Date(year, month - 1, Math.min(startDay, daysInMonth(year, month))),
+  );
 }
 
 function isoDayTimestamp(day: string): number {
@@ -141,14 +160,19 @@ function isoDayTimestamp(day: string): number {
 }
 
 export function addIsoDays(day: string, days: number): IsoDayString {
-  if (!Number.isInteger(days)) throw new Error('days must be an integer');
+  if (!Number.isInteger(days)) throw new Error("days must be an integer");
   const parts = parseIsoDay(assertIsoDay(day));
-  return isoDayFromDate(new Date(parts!.year, parts!.month - 1, parts!.day + days));
+  return isoDayFromDate(
+    new Date(parts!.year, parts!.month - 1, parts!.day + days),
+  );
 }
 
-export function elapsedIsoDays(lastActiveDay: string, today: string): IsoDayString[] {
-  const start = assertIsoDay(lastActiveDay, 'lastActiveDay');
-  const end = assertIsoDay(today, 'today');
+export function elapsedIsoDays(
+  lastActiveDay: string,
+  today: string,
+): IsoDayString[] {
+  const start = assertIsoDay(lastActiveDay, "lastActiveDay");
+  const end = assertIsoDay(today, "today");
   if (isoDayTimestamp(start) >= isoDayTimestamp(end)) return [];
 
   const days: IsoDayString[] = [];
@@ -163,11 +187,19 @@ export function daysRemainingInMonth(day: string): number {
   return daysInMonth(parts!.year, parts!.month) - parts!.day + 1;
 }
 
-export function budgetCycleStartForDay(day: string, startDay = 1): IsoDayString {
+export function budgetCycleStartForDay(
+  day: string,
+  startDay = 1,
+): IsoDayString {
   const cycleStartDay = normalizeBudgetCycleStartDay(startDay);
   const parts = parseIsoDay(assertIsoDay(day));
-  const thisMonthStart = budgetCycleStartInMonth(parts!.year, parts!.month, cycleStartDay);
-  if (isoDayTimestamp(day) >= isoDayTimestamp(thisMonthStart)) return thisMonthStart;
+  const thisMonthStart = budgetCycleStartInMonth(
+    parts!.year,
+    parts!.month,
+    cycleStartDay,
+  );
+  if (isoDayTimestamp(day) >= isoDayTimestamp(thisMonthStart))
+    return thisMonthStart;
   const previous = shiftMonthParts(parts!.year, parts!.month, -1);
   return budgetCycleStartInMonth(previous.year, previous.month, cycleStartDay);
 }
@@ -176,15 +208,31 @@ export function budgetCycleEndForDay(day: string, startDay = 1): IsoDayString {
   const start = budgetCycleStartForDay(day, startDay);
   const parts = parseIsoDay(start)!;
   const next = shiftMonthParts(parts.year, parts.month, 1);
-  return addIsoDays(budgetCycleStartInMonth(next.year, next.month, normalizeBudgetCycleStartDay(startDay)), -1);
+  return addIsoDays(
+    budgetCycleStartInMonth(
+      next.year,
+      next.month,
+      normalizeBudgetCycleStartDay(startDay),
+    ),
+    -1,
+  );
 }
 
-export function budgetCycleKeyForDay(day: string, startDay = 1): IsoMonthString {
+export function budgetCycleKeyForDay(
+  day: string,
+  startDay = 1,
+): IsoMonthString {
   return isoMonthFromDay(budgetCycleStartForDay(day, startDay));
 }
 
 export function daysRemainingInBudgetCycle(day: string, startDay = 1): number {
-  return Math.floor((isoDayTimestamp(budgetCycleEndForDay(day, startDay)) - isoDayTimestamp(day)) / 86400000) + 1;
+  return (
+    Math.floor(
+      (isoDayTimestamp(budgetCycleEndForDay(day, startDay)) -
+        isoDayTimestamp(day)) /
+        86400000,
+    ) + 1
+  );
 }
 
 export function budgetCycleForDay(day: string, startDay = 1): BudgetCycle {
@@ -198,90 +246,169 @@ export function budgetCycleForDay(day: string, startDay = 1): BudgetCycle {
   };
 }
 
-export function isIsoDayInBudgetCycle(day: string | null | undefined, containingDay: string, startDay = 1): day is IsoDayString {
-  if (typeof day !== 'string' || !isIsoDay(day)) return false;
+export function isIsoDayInBudgetCycle(
+  day: string | null | undefined,
+  containingDay: string,
+  startDay = 1,
+): day is IsoDayString {
+  if (typeof day !== "string" || !isIsoDay(day)) return false;
   const cycle = budgetCycleForDay(containingDay, startDay);
-  return isoDayTimestamp(day) >= isoDayTimestamp(cycle.start) && isoDayTimestamp(day) <= isoDayTimestamp(cycle.end);
+  return (
+    isoDayTimestamp(day) >= isoDayTimestamp(cycle.start) &&
+    isoDayTimestamp(day) <= isoDayTimestamp(cycle.end)
+  );
 }
-
 
 function expenseDate(expense: object): string | null | undefined {
-  if (!('date' in expense)) return undefined;
+  if (!("date" in expense)) return undefined;
   const date = expense.date;
-  return typeof date === 'string' ? date : date === null ? null : undefined;
+  return typeof date === "string" ? date : date === null ? null : undefined;
 }
-export function isIsoDayInMonth(day: string | null | undefined, month: string): day is IsoDayString {
+export function isIsoDayInMonth(
+  day: string | null | undefined,
+  month: string,
+): day is IsoDayString {
   assertIsoMonth(month);
-  return typeof day === 'string' && isIsoDay(day) && day.startsWith(`${month}-`);
+  return (
+    typeof day === "string" && isIsoDay(day) && day.startsWith(`${month}-`)
+  );
 }
 
-export function filterExpensesByDay<Expense extends object>(expenses: readonly Expense[], day: string): Expense[] {
+export function filterExpensesByDay<Expense extends object>(
+  expenses: readonly Expense[],
+  day: string,
+): Expense[] {
   assertIsoDay(day);
   return expenses.filter((expense) => expenseDate(expense) === day);
 }
 
-export function filterExpensesByMonth<Expense extends object>(expenses: readonly Expense[], month: string): Expense[] {
+export function filterExpensesByMonth<Expense extends object>(
+  expenses: readonly Expense[],
+  month: string,
+): Expense[] {
   assertIsoMonth(month);
-  return expenses.filter((expense) => isIsoDayInMonth(expenseDate(expense), month));
+  return expenses.filter((expense) =>
+    isIsoDayInMonth(expenseDate(expense), month),
+  );
 }
 
-export function filterExpensesByBudgetCycle<Expense extends object>(expenses: readonly Expense[], day: string, startDay = 1): Expense[] {
+export function filterExpensesByBudgetCycle<Expense extends object>(
+  expenses: readonly Expense[],
+  day: string,
+  startDay = 1,
+): Expense[] {
   assertIsoDay(day);
-  return expenses.filter((expense) => isIsoDayInBudgetCycle(expenseDate(expense), day, startDay));
+  return expenses.filter((expense) =>
+    isIsoDayInBudgetCycle(expenseDate(expense), day, startDay),
+  );
 }
 
-export function amountUsd(expense: Pick<DatedExpense, 'amount' | 'cur'>, khrPerUsd = 4100): number {
-  if (!Number.isFinite(expense.amount)) throw new Error('expense amount must be finite');
-  if (!Number.isFinite(khrPerUsd) || khrPerUsd <= 0) throw new Error('KHR per USD rate must be positive');
-  return expense.cur === 'KHR' ? expense.amount / khrPerUsd : expense.amount;
+export function amountUsd(
+  expense: Pick<DatedExpense, "amount" | "cur">,
+  khrPerUsd = 4100,
+): number {
+  if (!Number.isFinite(expense.amount))
+    throw new Error("expense amount must be finite");
+  if (!Number.isFinite(khrPerUsd) || khrPerUsd <= 0)
+    throw new Error("KHR per USD rate must be positive");
+  return expense.cur === "KHR" ? expense.amount / khrPerUsd : expense.amount;
 }
 
 function isSpendingRecord(expense: DatedExpense) {
-  return expense.kind !== 'income';
+  return expense.kind !== "income";
 }
 
-export function spentUsdForDay(expenses: readonly DatedExpense[], day: string, khrPerUsd = 4100): number {
-  return filterExpensesByDay(expenses, day).filter(isSpendingRecord).reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
+export function spentUsdForDay(
+  expenses: readonly DatedExpense[],
+  day: string,
+  khrPerUsd = 4100,
+): number {
+  return filterExpensesByDay(expenses, day)
+    .filter(isSpendingRecord)
+    .reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
 }
 
-export function spentUsdForMonth(expenses: readonly DatedExpense[], month: string, khrPerUsd = 4100): number {
-  return filterExpensesByMonth(expenses, month).filter(isSpendingRecord).reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
+export function spentUsdForMonth(
+  expenses: readonly DatedExpense[],
+  month: string,
+  khrPerUsd = 4100,
+): number {
+  return filterExpensesByMonth(expenses, month)
+    .filter(isSpendingRecord)
+    .reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
 }
 
-export function spentUsdForBudgetCycle(expenses: readonly DatedExpense[], day: string, startDay = 1, khrPerUsd = 4100): number {
-  return filterExpensesByBudgetCycle(expenses, day, startDay).filter(isSpendingRecord).reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
+export function spentUsdForBudgetCycle(
+  expenses: readonly DatedExpense[],
+  day: string,
+  startDay = 1,
+  khrPerUsd = 4100,
+): number {
+  return filterExpensesByBudgetCycle(expenses, day, startDay)
+    .filter(isSpendingRecord)
+    .reduce((sum, expense) => sum + amountUsd(expense, khrPerUsd), 0);
 }
 
-export function appendTrimmedHistory(history: readonly number[], spentUsd: number, maxHistoryDays = MAX_HISTORY_DAYS): number[] {
-  if (!Number.isFinite(spentUsd)) throw new Error('spent USD must be finite');
-  if (!Number.isInteger(maxHistoryDays) || maxHistoryDays < 1) throw new Error('max history days must be a positive integer');
+export function appendTrimmedHistory(
+  history: readonly number[],
+  spentUsd: number,
+  maxHistoryDays = MAX_HISTORY_DAYS,
+): number[] {
+  if (!Number.isFinite(spentUsd)) throw new Error("spent USD must be finite");
+  if (!Number.isInteger(maxHistoryDays) || maxHistoryDays < 1)
+    throw new Error("max history days must be a positive integer");
   return [...history, spentUsd].slice(-maxHistoryDays);
 }
 
-function resetCategoryForNewMonth<Category extends MonthlyResetCategory>(category: Category): Category {
-  if ('swept' in category) return { ...category, spentUsd: 0, swept: false };
+function resetCategoryForNewMonth<Category extends MonthlyResetCategory>(
+  category: Category,
+): Category {
+  if ("swept" in category) return { ...category, spentUsd: 0, swept: false };
   return { ...category, spentUsd: 0 };
 }
 
-export function applyDateRollover<Category extends MonthlyResetCategory>(input: RolloverInput<Category>): RolloverResult<Category> {
-  const today = assertIsoDay(input.today, 'today');
+export function applyDateRollover<Category extends MonthlyResetCategory>(
+  input: RolloverInput<Category>,
+): RolloverResult<Category> {
+  const today = assertIsoDay(input.today, "today");
   const cycleStartDay = normalizeBudgetCycleStartDay(input.budgetCycleStartDay);
   const todayMonth = budgetCycleKeyForDay(today, cycleStartDay);
-  const lastActiveDay = typeof input.lastActiveDay === 'string' && isIsoDay(input.lastActiveDay) ? input.lastActiveDay : null;
-  const lastActiveMonth = typeof input.lastActiveMonth === 'string' && isIsoMonth(input.lastActiveMonth) ? input.lastActiveMonth : null;
-  const elapsedDays = lastActiveDay != null ? elapsedIsoDays(lastActiveDay, today) : [];
+  const lastActiveDay =
+    typeof input.lastActiveDay === "string" && isIsoDay(input.lastActiveDay)
+      ? input.lastActiveDay
+      : null;
+  const lastActiveMonth =
+    typeof input.lastActiveMonth === "string" &&
+    isIsoMonth(input.lastActiveMonth)
+      ? input.lastActiveMonth
+      : null;
+  const elapsedDays =
+    lastActiveDay != null ? elapsedIsoDays(lastActiveDay, today) : [];
   const dailyRolledOver = elapsedDays.length > 0;
-  const monthlyRolledOver = lastActiveMonth != null && lastActiveMonth !== todayMonth;
-  const previousActiveDaySpentUsd = dailyRolledOver ? spentUsdForDay(input.expenses, elapsedDays[0], input.khrPerUsd) : 0;
+  const monthlyRolledOver =
+    lastActiveMonth != null && lastActiveMonth !== todayMonth;
+  const previousActiveDaySpentUsd = dailyRolledOver
+    ? spentUsdForDay(input.expenses, elapsedDays[0], input.khrPerUsd)
+    : 0;
   const history = dailyRolledOver
-    ? elapsedDays.reduce((items, day) => appendTrimmedHistory(items, spentUsdForDay(input.expenses, day, input.khrPerUsd), input.maxHistoryDays), [...input.history])
+    ? elapsedDays.reduce(
+        (items, day) =>
+          appendTrimmedHistory(
+            items,
+            spentUsdForDay(input.expenses, day, input.khrPerUsd),
+            input.maxHistoryDays,
+          ),
+        [...input.history],
+      )
     : [...input.history];
 
   return {
     lastActiveDay: today,
     lastActiveMonth: todayMonth,
     history,
-    categories: monthlyRolledOver ? input.categories.map(resetCategoryForNewMonth) : [...input.categories],
+    categories: monthlyRolledOver
+      ? input.categories.map(resetCategoryForNewMonth)
+      : [...input.categories],
     paidBills: monthlyRolledOver ? {} : { ...input.paidBills },
     swept: monthlyRolledOver && input.swept != null ? false : input.swept,
     dailyRolledOver,
